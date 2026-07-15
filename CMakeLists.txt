@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.12...4.0)
 
 project(lepton CXX)
 
@@ -6,15 +6,22 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+#-------------------------------------------------------------------------------------------------------
+# Options
+#-------------------------------------------------------------------------------------------------------
 option(LEPTON_BUILD_EXAMPLES "Build example programs" OFF)
+option(LEPTON_BUILD_MODULE "Build the experimental C++20 named module target." OFF)
 option(LEPTON_BUILD_TESTS "Build unit tests" ON)
 option(LEPTON_ENABLE_LOGGER "Enable logs for the framework" ON)
 option(LEPTON_NO_EXCEPTIONS "Don't throw exceptions" OFF)
 option(LEPTON_USE_FSTACK "Use F-Stack + DPDK as the network backend" OFF)
 
-if(NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose the type of build." FORCE)
-endif()
+#-------------------------------------------------------------------------------------------------------
+# Set default build to release
+#-------------------------------------------------------------------------------------------------------
+if (NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose the type of build" FORCE)
+endif ()
 message(STATUS "CMAKE_BUILD_TYPE: " ${CMAKE_BUILD_TYPE})
 
 message(STATUS "LEPTON_BUILD_EXAMPLES: " ${LEPTON_BUILD_EXAMPLES})

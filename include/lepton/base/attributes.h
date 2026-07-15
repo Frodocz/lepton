@@ -2,7 +2,6 @@
 
 namespace lepton {
 
-    
 #define LEPTON_API __attribute__((visibility("default")))
 
 constexpr inline int LEPTON_VERSION_MAJOR{0};
@@ -69,6 +68,19 @@ constexpr inline int LEPTON_VERSION_PATCH{0};
         #define LEPTON_ATTRIBUTE_PACKED __attribute__((packed))
     #else
         #define LEPTON_ATTRIBUTE_PACKED
+    #endif
+#endif
+
+/**
+ * Module export helpers
+ */
+#ifndef LEPTON_BEGIN_EXPORT
+    #if defined(LEPTON_MODULE)
+        #define LEPTON_BEGIN_EXPORT export {
+        #define LEPTON_END_EXPORT }
+    #else
+        #define LEPTON_BEGIN_EXPORT
+        #define LEPTON_END_EXPORT
     #endif
 #endif
 

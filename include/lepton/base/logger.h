@@ -11,7 +11,6 @@ namespace lepton {
 
 extern LEPTON_API quill::Logger* lepton_root_logger;
 
-
 // Lifecycle management functions
 LEPTON_API void init_logger(quill::LogLevel log_level = quill::LogLevel::Debug,
                             bool use_console_logger = true) noexcept;
