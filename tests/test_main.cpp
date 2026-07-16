@@ -2,7 +2,7 @@
 #include "lepton/base/logger.h"
 
 int main(int argc, char** argv) {
-    lepton::init_logger(quill::LogLevel::Debug, false);
+    lepton::init_logger({.level = lepton::LogLevel::Debug});
     testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
 }

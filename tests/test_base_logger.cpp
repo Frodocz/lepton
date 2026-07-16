@@ -6,7 +6,11 @@
 #include <thread>
 #include <vector>
 
-// Control flag to cleanly stop the dedicated polling thread
+// This test demonstrates the core lepton integration model: YOU own a dedicated
+// poll thread and drive the loop. lepton::PollScope binds the backend to that
+// thread on construction and drains + shuts it down on scope exit, so the whole
+// start/poll/stop lifecycle stays on one thread with no manual teardown.
+
 std::atomic<bool> g_keep_polling{true};
 
 void dedicated_logger_worker() noexcept {
@@ -15,21 +19,14 @@ void dedicated_logger_worker() noexcept {
     // CPU_ZERO(&cpuset);
     // CPU_SET(0, &cpuset); // Bind to Core 0
     // pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
+
+    lepton::PollScope scope;  // start_logger() now; stop_logger() on scope exit
     std::cout << "[Logger Thread] Dedicated background polling worker started.\n";
     while (g_keep_polling.load(std::memory_order_relaxed)) {
-        // Continuously consume records from the SPSC ring buffer.
-        // poll_one() returns true if it processed a log, false if the queue was empty.
-        lepton::poll_logger();
+        lepton::poll_logger_once();
         std::this_thread::sleep_for(std::chrono::microseconds(5));
     }
-
-    // Drain any remaining logs after the keep_polling flag goes false
-    std::cout << "[Logger Thread] Draining remaining logs before exit...\n";
-    // Keep pulling 1000 times until the queue is empty
-    for (int i = 0; i < 1000; ++i) {
-        lepton::poll_logger();
-    }
-    std::cout << "[Logger Thread] Dedicated background polling worker stopped.\n";
+    std::cout << "[Logger Thread] Stop signalled; PollScope will drain on exit.\n";
 }
 
 void critical_path_worker(int thread_id) {
@@ -49,7 +46,9 @@ void critical_path_worker(int thread_id) {
 }
 
 int main() {
-    lepton::init_logger();
+    // Console sink so the logs are visible inline in this demo. The default is a
+    // rotating file sink, which is what a long-running server would use.
+    lepton::init_logger({.level = lepton::LogLevel::Debug, .to_console = true, .to_rotating_file = false});
     std::cout << "[Main] Internal Quill system initialized.\n";
 
     LEPTON_LOG_INFO("Lepton Version: {}.{}.{}",
@@ -57,7 +56,10 @@ int main() {
     LEPTON_LOG_WARN("Lepton is a lightspeed network framework");
     LEPTON_LOG_ERROR("Lepton provides DPDK support via F-Stack");
 
-    // Spawn the DEDICATED background polling thread
+    // Sleep 10s until the some outside monitors has enough window to start 
+    std::this_thread::sleep_for(std::chrono::seconds(10));
+
+    // Spawn the dedicated poll thread (user-owned).
     std::thread logger_thread(dedicated_logger_worker);
 
     // Spawn multiple CRITICAL path execution threads
@@ -74,12 +76,9 @@ int main() {
     }
     std::cout << "[Main] All critical engine threads have finished writing.\n";
 
-    // Give the logger thread a quick window to process final flushes
-    std::this_thread::sleep_for(std::chrono::milliseconds(20));
-
+    // Signal the poll thread to stop, then join it (PollScope drains on exit).
     std::cout << "[Main] Signaling dedicated logger thread to stop...\n";
     g_keep_polling.store(false, std::memory_order_relaxed);
-
     if (logger_thread.joinable()) {
         logger_thread.join();
     }
@@ -87,5 +86,3 @@ int main() {
     std::cout << "[Main] Multi-threaded logging simulation completed successfully.\n";
     return 0;
 }
-
-

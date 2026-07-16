@@ -9,7 +9,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 #-------------------------------------------------------------------------------------------------------
 # Options
 #-------------------------------------------------------------------------------------------------------
-option(LEPTON_BUILD_EXAMPLES "Build example programs" OFF)
+option(LEPTON_BUILD_EXAMPLES "Build example programs" ON)
 option(LEPTON_BUILD_MODULE "Build the experimental C++20 named module target." OFF)
 option(LEPTON_BUILD_TESTS "Build unit tests" ON)
 option(LEPTON_ENABLE_LOGGER "Enable logs for the framework" ON)
@@ -35,16 +35,16 @@ message(STATUS "LEPTON_NO_EXCEPTIONS: " ${LEPTON_NO_EXCEPTIONS})
 # -----------------------------------------------------------------------------
 include(FetchContent)
 
-find_package(absl CONFIG)
-if (NOT absl_FOUND)
-    message(STATUS "Abseil not found locally. Fetch from GitHub...")
-    FetchContent_Declare(
-        absl
-        GIT_REPOSITORY https://github.com/abseil/abseil-cpp.git
-        GIT_TAG        20260526.0
-    )
-    FetchContent_MakeAvailable(absl)
-endif()
+# find_package(absl CONFIG)
+# if (NOT absl_FOUND)
+#     message(STATUS "Abseil not found locally. Fetch from GitHub...")
+#     FetchContent_Declare(
+#         absl
+#         GIT_REPOSITORY https://github.com/abseil/abseil-cpp.git
+#         GIT_TAG        20260526.0
+#     )
+#     FetchContent_MakeAvailable(absl)
+# endif()
 
 FetchContent_Declare(
     fmt
@@ -111,13 +111,13 @@ find_package(OpenSSL REQUIRED)
 target_link_libraries(
     lepton
     PUBLIC
-    OpenSSL::SSL
-    OpenSSL::Crypto
+    # OpenSSL::SSL
+    # OpenSSL::Crypto
     fmt::fmt
     quill::quill
 
-    absl::flat_hash_map
-    absl::strings
+    # absl::flat_hash_map
+    # absl::strings
 )
 
 target_compile_options(lepton

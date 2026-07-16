@@ -37,11 +37,11 @@ namespace lepton
 /**
  * custom exception
  */
-class LEPTON_API PhotonError : public std::exception
+class LEPTON_API LeptonError : public std::exception
 {
 public:
-  explicit PhotonError(std::string s) : _error(static_cast<std::string&&>(s)) {}
-  explicit PhotonError(const char* s) : _error(s) {}
+  explicit LeptonError(std::string s) : _error(static_cast<std::string&&>(s)) {}
+  explicit LeptonError(const char* s) : _error(s) {}
 
   [[nodiscard]] const char* what() const noexcept override { return _error.data(); }
 
@@ -54,7 +54,7 @@ private:
         if (!(cond))                                                    \
         {                                                               \
             LOG_ERROR(__VA_ARGS__);                                     \
-            LEPTON_THROW(lepton::PhotonError{"Assert failed: " #cond}); \
+            LEPTON_THROW(lepton::LeptonError{"Assert failed: " #cond}); \
         }                                                               \
     }
 
