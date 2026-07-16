@@ -65,17 +65,18 @@ FetchContent_MakeAvailable(fmt quill)
 # -----------------------------------------------------------------------------
 set(LEPTON_HEADERS
     include/lepton/base/attributes.h
-    # include/lepton/base/base64.h
     include/lepton/base/logger.h
-    # include/lepton/base/lepton_error.h
-    # include/lepton/base/tsc_clock.h
+    include/lepton/base/lepton_error.h
 
-    # include/lepton/third_party/inplace_function.h
-    # include/lepton/third_party/tscns.h
+    include/lepton/net/endpoint.h
+    include/lepton/net/stream.h
+    include/lepton/net/sys_api.h
+    include/lepton/net/tcp_socket.h
 )
 
 set(LEPTON_SOURCES
     src/base/logger.cpp
+    src/net/endpoint.cpp
 )
 
 # -----------------------------------------------------------------------------
