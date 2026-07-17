@@ -12,23 +12,30 @@
 
 namespace lepton::net {
 
-Endpoint resolve(std::string_view host, uint16_t port) {
-    // getaddrinfo needs a NUL-terminated host string.
-    std::string host_str{host};
+std::optional<Endpoint> Endpoint::resolve(std::string_view host, uint16_t port) {
+    if (host.size() >= 256) [[unlikely]] {
+        LEPTON_LOG_WARN("host='{}' is too long, pass a reduced version", host);
+        return std::nullopt;
+    }
+
+    // Avoid heap allocation, getaddrinfo needs a NUL-terminated host string.
+    char host_buffer[256];
+    std::memcpy(host_buffer, host.data(), host.size());
+    host_buffer[host.size()] = '\0';
 
     struct addrinfo hints {};
     hints.ai_family = AF_INET;       // IPv4 only for now
     hints.ai_socktype = SOCK_STREAM; // TCP
 
     struct addrinfo* result = nullptr;
-    int rc = ::getaddrinfo(host_str.c_str(), nullptr, &hints, &result);
+    int rc = ::getaddrinfo(host_buffer, nullptr, &hints, &result);
     if (rc != 0 || result == nullptr) {
-        LEPTON_LOG_WARN("resolve failed for host='{}': {}", host_str,
+        LEPTON_LOG_WARN("resolve failed for host='{}': {}", host_buffer,
                         rc != 0 ? ::gai_strerror(rc) : "no result");
         if (result != nullptr) {
             ::freeaddrinfo(result);
         }
-        return {};
+        return std::nullopt;
     }
 
     // Take the first IPv4 result.

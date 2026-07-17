@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <cstring>
 #include <netinet/in.h>
+#include <optional>
 #include <string_view>
 
 namespace lepton::net {
@@ -35,7 +36,7 @@ struct Endpoint {
 
     /// Resolve `host` (name or dotted-quad) + `port` (host order) to an Endpoint.
     /// Returns an invalid Endpoint on failure. BLOCKING — cold path only.
-    [[nodiscard]] Endpoint resolve(std::string_view host, uint16_t port);
+    [[nodiscard]] std::optional<Endpoint> resolve(std::string_view host, uint16_t port);
 };
 
 } // namespace lepton::net

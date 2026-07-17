@@ -10,7 +10,7 @@
 /// and stay portable.
 ///
 /// Backend selection macros (set by CMake, see CMakeLists.txt):
-///   PHOTON_USE_FSTACK  -> F-Stack + DPDK userspace TCP/IP stack (production)
+///   LEPTON_USE_FSTACK  -> F-Stack + DPDK userspace TCP/IP stack (production)
 ///                      -> Not set means POSIX kernel sockets (local dev / CI)
 
 #include "lepton/base/attributes.h"

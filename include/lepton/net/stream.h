@@ -30,8 +30,8 @@ namespace lepton::net {
 enum class StreamPhase : uint8_t { Connecting, Open, Failed, Closed };
 
 template <typename T>
-concept Stream = requires(T s, const Endpoint& ep, std::span<uint8_t> wb,
-                          std::span<const uint8_t> rb, bool more) {
+concept Stream = requires(T s, const Endpoint& ep, std::span<std::byte> wb,
+                          std::span<const std::byte> rb, bool more) {
     { s.connect(ep) } -> std::convertible_to<bool>;
     { s.poll_open() } -> std::convertible_to<StreamPhase>;
     { s.fd() } -> std::convertible_to<int>;

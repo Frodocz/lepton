@@ -57,7 +57,7 @@ int main() {
     LEPTON_LOG_ERROR("Lepton provides DPDK support via F-Stack");
 
     // Sleep 10s until the some outside monitors has enough window to start 
-    std::this_thread::sleep_for(std::chrono::seconds(10));
+    std::this_thread::sleep_for(std::chrono::seconds(3));
 
     // Spawn the dedicated poll thread (user-owned).
     std::thread logger_thread(dedicated_logger_worker);
@@ -75,6 +75,12 @@ int main() {
         }
     }
     std::cout << "[Main] All critical engine threads have finished writing.\n";
+
+    lepton::set_log_level(lepton::LogLevel::Warning);
+    LEPTON_LOG_INFO("Info level log should not appear");
+    LEPTON_LOG_WARN("Warn level log should appear as before");
+    LEPTON_LOG_ERROR("Error level log should appear as before");
+    LEPTON_LOG_WARN("Change of level should not affect previous critical engine threads Debug level logs");
 
     // Signal the poll thread to stop, then join it (PollScope drains on exit).
     std::cout << "[Main] Signaling dedicated logger thread to stop...\n";
