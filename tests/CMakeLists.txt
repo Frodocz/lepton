@@ -48,3 +48,6 @@ target_link_libraries(test_base_logger PRIVATE lepton::lepton)
 target_compile_options(test_base_logger PRIVATE -O3 -march=native)
 add_test(NAME test_base_logger COMMAND test_base_logger)
 message(STATUS "Registered Test Target: test_base_logger")
+
+lepton_add_test(test_buffer_pool test_buffer_pool.cpp)
+lepton_add_test(test_tcp_socket test_tcp_socket.cpp)

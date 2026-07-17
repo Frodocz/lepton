@@ -25,7 +25,7 @@ struct Endpoint {
     /// Fill a `sockaddr_in` at `out` (must be sockaddr_in-sized). Returns the
     /// byte length written. `out` is void* so callers/backends stay decoupled
     /// from the concrete sockaddr type (see sys_api.h).
-    [[nodiscard]] size_t to_sockaddr(void* out) const noexcept {
+    size_t to_sockaddr(void* out) const noexcept {
         struct sockaddr_in sa {};
         sa.sin_family = AF_INET;
         sa.sin_port = port_be;

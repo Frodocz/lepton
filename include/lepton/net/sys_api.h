@@ -94,6 +94,18 @@ LEPTON_ALWAYS_INLINE int set_nodelay(int fd, bool on) noexcept {
 #endif
 }
 
+/// TCP_QUICKACK on/off. Returns 0 or -errno.
+LEPTON_ALWAYS_INLINE int set_quickack(int fd, bool on) noexcept {
+#if defined(LEPTON_USE_FSTACK)
+    (void)fd;
+    (void)on;
+    return 0;    
+#else
+    int v = on ? 1 : 0;
+    return ::setsockopt(fd, IPPROTO_TCP, TCP_QUICKACK, &v, sizeof(v)) == 0 ? 0 : -errno;
+#endif
+}
+
 /// SO_RCVBUF / SO_SNDBUF. Returns 0 or -errno.
 LEPTON_ALWAYS_INLINE int set_recv_buf(int fd, int bytes) noexcept {
 #if defined(LEPTON_USE_FSTACK)

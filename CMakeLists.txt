@@ -111,6 +111,11 @@ target_compile_options(lepton
     -Wextra
 )
 
+if(LEPTON_NO_EXCEPTIONS)
+    target_compile_definitions(lepton PUBLIC LEPTON_NO_EXCEPTIONS)
+    target_compile_options(lepton PUBLIC -fno-exceptions)
+endif()
+
 find_package(OpenSSL REQUIRED)
 target_link_libraries(
     lepton

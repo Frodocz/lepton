@@ -153,6 +153,7 @@ public:
     [[nodiscard]] ConnState state() const noexcept { return state_; }
 
     void set_nodelay(bool on) noexcept { sys::set_nodelay(fd_, on); }
+    void set_quickack(bool on) noexcept { sys::set_quickack(fd_, on); }
     void set_recv_buf(int bytes) noexcept { sys::set_recv_buf(fd_, bytes); }
     void set_send_buf(int bytes) noexcept { sys::set_send_buf(fd_, bytes); }
 

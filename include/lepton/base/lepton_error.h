@@ -10,14 +10,15 @@
     #include <cstdio>
     #include <cstdlib>
 
-    #define LEPTON_REQUIRE(expression, error)                                             \
-        do                                                                                \
-        {                                                                                 \
-            if (!(expression)) [[unlikely]]                                               \
-            {                                                                             \
-                std::fprintf("Lepton fatal error: %s\n", error, __FILE_NAME__, __LINE__); \
-                std::abort();                                                             \
-            }                                                                             \
+    #define LEPTON_REQUIRE(expression, error)                            \
+        do                                                               \
+        {                                                                \
+            if (!(expression)) [[unlikely]]                              \
+            {                                                            \
+                std::fprintf(stderr, "Lepton fatal error: %s (%s:%d)\n", \
+                    error, __FILE__, __LINE__);                          \
+                std::abort();                                            \
+            }                                                            \
         } while (0)
 
     #define LEPTON_TRY if (true)
