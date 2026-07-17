@@ -9,7 +9,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 #-------------------------------------------------------------------------------------------------------
 # Options
 #-------------------------------------------------------------------------------------------------------
-option(LEPTON_BUILD_EXAMPLES "Build example programs" ON)
+option(LEPTON_BUILD_EXAMPLES "Build example programs" OFF)
 option(LEPTON_BUILD_MODULE "Build the experimental C++20 named module target." OFF)
 option(LEPTON_BUILD_TESTS "Build unit tests" ON)
 option(LEPTON_ENABLE_LOGGER "Enable logs for the framework" ON)
@@ -65,8 +65,10 @@ FetchContent_MakeAvailable(fmt quill)
 # -----------------------------------------------------------------------------
 set(LEPTON_HEADERS
     include/lepton/base/attributes.h
-    include/lepton/base/logger.h
+    include/lepton/base/buffer_pool.h
+    include/lepton/base/io_buffer.h
     include/lepton/base/lepton_error.h
+    include/lepton/base/logger.h
 
     include/lepton/net/endpoint.h
     include/lepton/net/stream.h
@@ -76,6 +78,7 @@ set(LEPTON_HEADERS
 
 set(LEPTON_SOURCES
     src/base/logger.cpp
+
     src/net/endpoint.cpp
 )
 
