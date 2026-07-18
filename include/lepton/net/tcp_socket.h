@@ -134,13 +134,13 @@ public:
     [[nodiscard]] bool closed() const noexcept { return state_ == ConnState::Closed; }
 
     /// Nonblocking read into `dst`. 0 == EOF, -EAGAIN == nothing yet, <0 == -errno.
-    LEPTON_ALWAYS_INLINE sys::io_result read(std::span<std::byte> dst) noexcept {
+    LEPTON_ALWAYS_INLINE sys::io_result read(std::span<uint8_t> dst) noexcept {
         return sys::recv(fd_, dst.data(), dst.size());
     }
 
     /// Nonblocking write of `src`. Returns accepted bytes (may be partial) or
     /// -errno (-EAGAIN if send buffer full). `more` -> MSG_MORE coalescing.
-    LEPTON_ALWAYS_INLINE sys::io_result write(std::span<const std::byte> src, bool more) noexcept {
+    LEPTON_ALWAYS_INLINE sys::io_result write(std::span<const uint8_t> src, bool more) noexcept {
         return sys::send(fd_, src.data(), src.size(), more);
     }
 

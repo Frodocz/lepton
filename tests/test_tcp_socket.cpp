@@ -211,8 +211,8 @@ TEST(TcpSocketTest, EndToEndCommunication) {
     // Send PING message
     const char* ping_msg = "PING_ECHO_TEST";
     std::size_t msg_len = std::strlen(ping_msg);
-    auto write_res = client.write(std::span<const std::byte>(
-        reinterpret_cast<const std::byte*>(ping_msg), msg_len), false);
+    auto write_res = client.write(std::span<const uint8_t>(
+        reinterpret_cast<const uint8_t*>(ping_msg), msg_len), false);
     EXPECT_EQ(write_res, static_cast<sys::io_result>(msg_len));
     
     // Wait for echoed data (readability)
@@ -235,8 +235,8 @@ TEST(TcpSocketTest, EndToEndCommunication) {
     
     // Read echoed response
     char recv_buf[128] = {0};
-    auto read_res = client.read(std::span<std::byte>(
-        reinterpret_cast<std::byte*>(recv_buf), sizeof(recv_buf) - 1));
+    auto read_res = client.read(std::span<uint8_t>(
+        reinterpret_cast<uint8_t*>(recv_buf), sizeof(recv_buf) - 1));
     EXPECT_EQ(read_res, static_cast<sys::io_result>(msg_len));
     EXPECT_STREQ(recv_buf, ping_msg);
     

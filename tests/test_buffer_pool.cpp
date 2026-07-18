@@ -33,7 +33,7 @@ TEST(BufferPoolTest, AcquireAndReleaseLifecycle) {
     EXPECT_EQ(buf.tailroom(), 128u);
 
     // Write some data (append)
-    std::span<std::byte> spare = buf.spare();
+    std::span<uint8_t> spare = buf.spare();
     EXPECT_EQ(spare.size(), 128u);
     
     buf.append(50);
@@ -114,7 +114,7 @@ TEST(IOBufferTest, PrependAndHeadroom) {
     EXPECT_EQ(buf.size(), 100u);
     
     // Prepend header
-    std::span<std::byte> header = buf.prepend(20);
+    std::span<uint8_t> header = buf.prepend(20);
     EXPECT_EQ(header.size(), 20u);
     EXPECT_EQ(buf.size(), 120u);
     EXPECT_EQ(buf.headroom(), 44u);
@@ -148,7 +148,7 @@ TEST(BufferPoolTest, MultiThreadedConcurrentAcquireRelease) {
                 IOBuffer buf = pool.acquire();
                 if (buf) {
                     // Write thread ID to the first 4 bytes of payload to assert mutual exclusion
-                    std::span<std::byte> data = buf.append(sizeof(t));
+                    std::span<uint8_t> data = buf.append(sizeof(t));
                     std::memcpy(data.data(), &t, sizeof(t));
                     
                     // Simulate minor work

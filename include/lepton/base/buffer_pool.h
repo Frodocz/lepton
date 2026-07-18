@@ -18,7 +18,6 @@
 
 #include <atomic>
 #include <cassert>
-#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -78,9 +77,8 @@ public:
         }
 #else
         head_free_val_.store(0xFFFFFFFFULL, std::memory_order_relaxed); // version 0, index -1
-        available_.store(0, std::memory_order_relaxed);
-
-        const std::size_t total = count_ * buf_size_;
+        
+        std::size_t total = count_ * buf_size_;
         allocated_size_ = total;
         
         int flags = MAP_PRIVATE | MAP_ANONYMOUS;
@@ -90,11 +88,11 @@ public:
             allocated_size_ = (total + hugepage_size - 1) & ~(hugepage_size - 1);
             
             // 1. Try allocating with explicit huge pages (MAP_HUGETLB)
-            arena_ = static_cast<std::byte*>(::mmap(nullptr, allocated_size_, PROT_READ | PROT_WRITE, flags | MAP_HUGETLB, -1, 0));
+            arena_ = static_cast<uint8_t*>(::mmap(nullptr, allocated_size_, PROT_READ | PROT_WRITE, flags | MAP_HUGETLB, -1, 0));
             if (arena_ == MAP_FAILED) {
                 // 2. Fallback to standard anonymous mmap if MAP_HUGETLB fails
                 allocated_size_ = total;
-                arena_ = static_cast<std::byte*>(::mmap(nullptr, allocated_size_, PROT_READ | PROT_WRITE, flags, -1, 0));
+                arena_ = static_cast<uint8_t*>(::mmap(nullptr, allocated_size_, PROT_READ | PROT_WRITE, flags, -1, 0));
                 if (arena_ != MAP_FAILED) {
                     // Transparent Huge Pages (THP) compaction/promotion can introduce latency spikes (defrag jitter) on hot paths.
                     // We explicitly set MADV_NOHUGEPAGE to prevent the kernel from attempting background consolidation on our pool.
@@ -104,7 +102,7 @@ public:
                 }
             }
         } else {
-            arena_ = static_cast<std::byte*>(::mmap(nullptr, allocated_size_, PROT_READ | PROT_WRITE, flags, -1, 0));
+            arena_ = static_cast<uint8_t*>(::mmap(nullptr, allocated_size_, PROT_READ | PROT_WRITE, flags, -1, 0));
             if (arena_ == MAP_FAILED) {
                 arena_ = nullptr;
             } else {
@@ -125,10 +123,10 @@ public:
         if (arena_ != nullptr) {
             // Pre-fault (warm) the memory pool page-by-page (stride 4KB) to avoid page faults on the hot path
             for (std::size_t offset = 0; offset < allocated_size_; offset += 4096) {
-                arena_[offset] = std::byte{0};
+                arena_[offset] = 0;
             }
             if (allocated_size_ > 0) {
-                arena_[allocated_size_ - 1] = std::byte{0};
+                arena_[allocated_size_ - 1] = 0;
             }
 
             // Intrusively link all free buffers: index 0 -> 1 -> 2 -> ... -> count-1
@@ -173,7 +171,7 @@ public:
         }
         available_.fetch_sub(1, std::memory_order_relaxed);
         IOBuffer buf;
-        buf.base_ = static_cast<std::byte*>(obj);
+        buf.base_ = static_cast<uint8_t*>(obj);
         buf.cap_ = buf_size_;
         buf.head_ = reserve_front;
         buf.len_ = 0;
@@ -272,7 +270,7 @@ private:
 #if defined(LEPTON_USE_FSTACK)
     struct rte_mempool* mp_{nullptr};
 #else
-    std::byte* arena_{nullptr};
+    uint8_t* arena_{nullptr};
 #endif
     std::size_t buf_size_{0};
     std::size_t count_{0};

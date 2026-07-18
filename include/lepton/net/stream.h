@@ -21,7 +21,7 @@
 #include "lepton/net/sys_api.h"
 
 #include <concepts>
-#include <cstddef>
+#include <cstdint>
 #include <span>
 
 namespace lepton::net {
@@ -30,8 +30,8 @@ namespace lepton::net {
 enum class StreamPhase : uint8_t { Connecting, Open, Failed, Closed };
 
 template <typename T>
-concept Stream = requires(T s, const Endpoint& ep, std::span<std::byte> wb,
-                          std::span<const std::byte> rb, bool more) {
+concept Stream = requires(T s, const Endpoint& ep, std::span<uint8_t> wb,
+                          std::span<const uint8_t> rb, bool more) {
     { s.connect(ep) } -> std::convertible_to<bool>;
     { s.poll_open() } -> std::convertible_to<StreamPhase>;
     { s.fd() } -> std::convertible_to<int>;
