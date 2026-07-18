@@ -4,10 +4,11 @@
 
 #include "lepton/base/attributes.h"
 
-#include "quill/LogMacros.h"
-#include "quill/Logger.h"
-
 #include <cassert>
+
+#include <quill/bundled/fmt/format.h>
+#include <quill/LogMacros.h>
+#include <quill/Logger.h>
 
 // Debug-only guard: fires a clear message if a LEPTON_LOG_* is used before
 // lepton::init_logger() set the root logger. Compiles out entirely under
@@ -119,6 +120,8 @@ public:
     PollScope(PollScope&&) = delete;
     PollScope& operator=(PollScope&&) = delete;
 };
+
+namespace fmt = ::fmtquill;
 
 } // namespace lepton
 

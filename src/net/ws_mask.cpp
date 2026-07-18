@@ -5,9 +5,9 @@
 
 #include "lepton/net/ws_mask.h"
 
-#include <sys/random.h>
-
 #include <ctime>
+
+#include <sys/random.h>
 
 namespace lepton::net {
 

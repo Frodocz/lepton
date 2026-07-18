@@ -1,6 +1,5 @@
-#include "lepton/net/tcp_socket.h"
 #include "lepton/net/poller.h"
-#include <gtest/gtest.h>
+#include "lepton/net/tcp_socket.h"
 
 #include <atomic>
 #include <chrono>
@@ -8,6 +7,7 @@
 #include <thread>
 
 #include <arpa/inet.h>
+#include <gtest/gtest.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <unistd.h>

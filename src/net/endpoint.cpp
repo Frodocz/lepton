@@ -5,10 +5,11 @@
 
 #include "lepton/base/logger.h"
 
-#include <netdb.h>
-#include <arpa/inet.h>
-
+#include <cstring>
 #include <string>
+
+#include <arpa/inet.h>
+#include <netdb.h>
 
 namespace lepton::net {
 

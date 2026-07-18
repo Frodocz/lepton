@@ -56,9 +56,6 @@ int main() {
     LEPTON_LOG_WARN("Lepton is a lightspeed network framework");
     LEPTON_LOG_ERROR("Lepton provides DPDK support via F-Stack");
 
-    // Sleep 10s until the some outside monitors has enough window to start 
-    std::this_thread::sleep_for(std::chrono::seconds(3));
-
     // Spawn the dedicated poll thread (user-owned).
     std::thread logger_thread(dedicated_logger_worker);
 

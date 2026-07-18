@@ -28,10 +28,10 @@
 #include <unistd.h>
 
 #if defined(LEPTON_USE_FSTACK)
-#include <rte_mempool.h>
 #include <rte_common.h>
-#include <rte_memory.h>
 #include <rte_errno.h>
+#include <rte_memory.h>
+#include <rte_mempool.h>
 #endif
 
 namespace lepton {
@@ -53,9 +53,13 @@ public:
           count_{count} {
               
 #if defined(LEPTON_USE_FSTACK)
-        char name_buf[32];
         static std::atomic<int> pool_id{0};
-        std::snprintf(name_buf, sizeof(name_buf), "lepton_mp_%d", pool_id.fetch_add(1, std::memory_order_relaxed));
+        int current_id = pool_id.fetch_add(1, std::memory_order_relaxed);
+        LEPTON_REQUIRE(current_id < 64, "Exceeded maximum allowed DPDK mempools (64)");
+
+        char name_buf[32];
+        auto format_res = lepton::fmt::format_to_n(name_buf, sizeof(name_buf) - 1, "lepton_mp_{}", current_id);
+        *format_res.out = '\0';
         
         // DPDK mempool per-core cache size. Set to 32 if count is reasonably large.
         unsigned cache_size = count_ >= 64 ? 32 : 0;

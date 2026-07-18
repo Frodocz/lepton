@@ -47,18 +47,12 @@ include(FetchContent)
 # endif()
 
 FetchContent_Declare(
-    fmt
-    GIT_REPOSITORY https://github.com/fmtlib/fmt
-    GIT_TAG        12.2.0
-)
-
-FetchContent_Declare(
     quill
     GIT_REPOSITORY https://github.com/odygrd/quill.git
     GIT_TAG        v12.0.0
 )
 
-FetchContent_MakeAvailable(fmt quill)
+FetchContent_MakeAvailable(quill)
 
 # -----------------------------------------------------------------------------
 # Source & Header Files
@@ -78,6 +72,8 @@ set(LEPTON_HEADERS
     include/lepton/net/tcp_socket.h
     include/lepton/net/ws_frame.h
     include/lepton/net/ws_mask.h
+
+    include/lepton/security/tls_context.h
 )
 
 set(LEPTON_SOURCES
@@ -85,6 +81,8 @@ set(LEPTON_SOURCES
 
     src/net/endpoint.cpp
     src/net/ws_mask.cpp
+
+    src/security/tls_context.cpp
 )
 
 # -----------------------------------------------------------------------------
@@ -125,13 +123,9 @@ find_package(OpenSSL REQUIRED)
 target_link_libraries(
     lepton
     PUBLIC
-    # OpenSSL::SSL
-    # OpenSSL::Crypto
-    fmt::fmt
+    OpenSSL::SSL
+    OpenSSL::Crypto
     quill::quill
-
-    # absl::flat_hash_map
-    # absl::strings
 )
 
 target_compile_options(lepton
