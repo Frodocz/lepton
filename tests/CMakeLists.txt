@@ -51,3 +51,4 @@ message(STATUS "Registered Test Target: test_base_logger")
 
 lepton_add_test(test_buffer_pool test_buffer_pool.cpp)
 lepton_add_test(test_tcp_socket test_tcp_socket.cpp)
+lepton_add_test(test_ws test_ws.cpp)
