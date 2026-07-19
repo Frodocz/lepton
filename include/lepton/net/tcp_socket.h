@@ -50,6 +50,15 @@ public:
         return *this;
     }
 
+    /// Wrap an existing open file descriptor.
+    void assign(int fd, ConnState state = ConnState::Connected) noexcept {
+        close();
+        fd_ = fd;
+        state_ = state;
+        sys::set_nonblock(fd_);
+        sys::set_nodelay(fd_, true);
+    }
+
     /// Create the fd and begin a nonblocking connect.
     /// Returns false only on a hard local error (fd creation / immediate refuse).
     /// EINPROGRESS -> true, state becomes `connecting`;

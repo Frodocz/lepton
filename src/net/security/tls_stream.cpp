@@ -215,10 +215,19 @@ net::sys::io_result TlsStream::read(std::span<uint8_t> dst) noexcept {
     if (phase_ != TlsPhase::Established) {
         return -EAGAIN;
     }
-    // Feed any freshly-arrived ciphertext before decrypting.
-    if (!pump()) {
-        fail();
-        return -EIO;
+    // Only pump from the network if OpenSSL doesn't already have pending data in memory.
+    // This avoids redundant read() syscalls when draining multiple TLS records.
+    if (::SSL_pending(ssl_) == 0 && ::BIO_ctrl_pending(rbio_) == 0) {
+        if (!pump()) {
+            fail();
+            return -EIO;
+        }
+    } else {
+        // Just pump outbound data in case we have write-buffered TLS control frames
+        if (!pump_out()) {
+            fail();
+            return -EIO;
+        }
     }
     int n = ::SSL_read(ssl_, dst.data(), static_cast<int>(dst.size()));
     if (n > 0) {
@@ -240,9 +249,16 @@ net::sys::io_result TlsStream::read(std::span<uint8_t> dst) noexcept {
             [[fallthrough]];
         case SSL_ERROR_WANT_WRITE:
             // A renegotiation/handshake record may need to go out.
-            if (!pump()) {
-                fail();
-                return -EIO;
+            if (::SSL_pending(ssl_) == 0 && ::BIO_ctrl_pending(rbio_) == 0) {
+                if (!pump()) {
+                    fail();
+                    return -EIO;
+                }
+            } else {
+                if (!pump_out()) {
+                    fail();
+                    return -EIO;
+                }
             }
             return -EAGAIN;
         case SSL_ERROR_ZERO_RETURN:
