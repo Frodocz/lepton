@@ -79,8 +79,14 @@ LEPTON_ALWAYS_INLINE int set_nonblock(int fd) noexcept {
     int on = 1;
     return ff_ioctl(fd, FIONBIO, &on) == 0 ? 0 : -errno;
 #else
-    // tcp_socket() already sets SOCK_NONBLOCK
-    return 0;
+    int flags = ::fcntl(fd, F_GETFL, 0);
+    if (flags < 0) [[unlikely]] {
+        return -errno;
+    }
+    if (flags & O_NONBLOCK) {
+        return 0;  // already nonblocking
+    }
+    return ::fcntl(fd, F_SETFL, flags | O_NONBLOCK) == 0 ? 0 : -errno;
 #endif
 }
 
