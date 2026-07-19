@@ -1,5 +1,6 @@
-#include <gtest/gtest.h>
 #include "lepton/base/logger.h"
+
+#include <gtest/gtest.h>
 
 int main(int argc, char** argv) {
     lepton::init_logger({.level = lepton::LogLevel::Debug});

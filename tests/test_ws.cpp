@@ -1,6 +1,8 @@
 #include "lepton/net/detail/ws_frame.h"
 #include "lepton/net/detail/ws_mask.h"
+
 #include <gtest/gtest.h>
+
 #include <algorithm>
 #include <cstring>
 #include <random>

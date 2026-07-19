@@ -227,6 +227,17 @@ net::sys::io_result TlsStream::read(std::span<uint8_t> dst) noexcept {
     int err = ::SSL_get_error(ssl_, n);
     switch (err) {
         case SSL_ERROR_WANT_READ:
+            // EPOLLET + TLS fix: OpenSSL may have already buffered decrypted
+            // plaintext from a previous TLS record that was read from the socket
+            // in one go.  Edge-triggered epoll won't fire again for data already
+            // consumed from the fd, so we must check SSL_pending() and retry.
+            if (::SSL_pending(ssl_) > 0) {
+                n = ::SSL_read(ssl_, dst.data(), static_cast<int>(dst.size()));
+                if (n > 0) {
+                    return n;
+                }
+            }
+            [[fallthrough]];
         case SSL_ERROR_WANT_WRITE:
             // A renegotiation/handshake record may need to go out.
             if (!pump()) {

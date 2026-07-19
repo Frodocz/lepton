@@ -50,11 +50,12 @@ int WsSession<Transport>::fd() const noexcept {
 
 template <Stream Transport>
 bool WsSession<Transport>::wants_write() const noexcept {
-    return pending_count_ > 0;
+    return pending_count_ > 0 || state_ == WsState::Connecting;
 }
 
 template <Stream Transport>
 void WsSession<Transport>::on_ready(uint32_t /*flags*/) {
+    check_timeouts();
     if (state_ == WsState::Disconnected || state_ == WsState::Failed) {
         maybe_reconnect();
         return;
@@ -93,6 +94,12 @@ void WsSession<Transport>::start_connect() {
 
     if constexpr (requires(Transport& t, std::string_view h) { t.set_hostname(h); }) {
         transport_.set_hostname(host_);
+    }
+
+    if (connect_timeout_ns_ > 0) {
+        connect_deadline_ns_ = TscClock::tscns() + connect_timeout_ns_;
+    } else {
+        connect_deadline_ns_ = 0;
     }
 
     if (!transport_.connect(ep_)) {
@@ -475,6 +482,16 @@ void WsSession<Transport>::release_buffers() noexcept {
     }
     if (frag_) {
         pool_.release(frag_);
+    }
+}
+
+template <Stream Transport>
+void WsSession<Transport>::check_timeouts() noexcept {
+    if ((state_ == WsState::Connecting || state_ == WsState::Upgrading) && connect_deadline_ns_ > 0) {
+        if (TscClock::tscns() >= connect_deadline_ns_) {
+            LEPTON_LOG_WARN("ws: connection timeout");
+            teardown(WsState::Failed);
+        }
     }
 }
 

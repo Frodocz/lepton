@@ -32,6 +32,7 @@
 #include "lepton/net/stream.h"
 #include "lepton/net/detail/ws_frame.h"
 #include "lepton/net/detail/ws_mask.h"
+
 #include "third_party/inplace_function.h"
 
 #include <cstdint>
@@ -78,6 +79,7 @@ public:
     void on_state(OnState cb) { on_state_ = std::move(cb); }
     void set_ping_interval_ns(int64_t ns) noexcept { ping_interval_ns_ = ns; }
     void set_pong_timeout_ns(int64_t ns) noexcept { pong_timeout_ns_ = ns; }
+    void set_connect_timeout_ns(int64_t ns) noexcept { connect_timeout_ns_ = ns; }
     void set_auto_reconnect(bool on) noexcept { auto_reconnect_ = on; }
 
     /// HTTP request target path (e.g. "/ws" or "/stream?streams=...").
@@ -105,6 +107,8 @@ public:
 
     /// Access the underlying transport. Cold path.
     [[nodiscard]] Transport& transport() noexcept { return transport_; }
+
+    void check_timeouts() noexcept;
 
     // ── Pollable ─────────────────────────────────────────────────────────────
     [[nodiscard]] int fd() const noexcept override;
@@ -192,6 +196,9 @@ private:
     bool auto_reconnect_{false};
     int64_t reconnect_delay_ns_{0};
     int64_t reconnect_at_ns_{0};
+
+    int64_t connect_timeout_ns_{0};
+    int64_t connect_deadline_ns_{0};
 };
 
 } // namespace lepton::net

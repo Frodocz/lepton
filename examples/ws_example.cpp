@@ -24,17 +24,17 @@ int main() {
     BufferPool pool(16, 4096, false);
 
     // 2. Resolve endpoint (echo.websocket.org on port 80)
-    auto ep_opt = net::Endpoint{}.resolve("echo.websocket.org", 80);
+    auto ep_opt = net::Endpoint{}.resolve("websockets.chilkat.io", 80);
     if (!ep_opt) {
-        LEPTON_LOG_ERROR("Failed to resolve echo.websocket.org");
+        LEPTON_LOG_ERROR("Failed to resolve websockets.chilkat.io");
         return 1;
     }
     net::Endpoint ep = *ep_opt;
 
     // 3. Create WsSession templated on TcpSocket
     net::WsSession<net::TcpSocket> ws(loop, pool);
-    ws.set_host("echo.websocket.org");
-    ws.set_path("/");
+    ws.set_host("websockets.chilkat.io");
+    ws.set_path("/wsChilkatEcho.ashx");
     ws.set_sec_key("dGhlIHNhbXBsZSBub25jZQ=="); // Standard base64 key
     ws.set_ping_interval_ns(10'000'000'000);   // 10s ping intervals
     ws.set_pong_timeout_ns(5'000'000'000);      // 5s pong timeouts
@@ -54,7 +54,7 @@ int main() {
     });
 
     // 4. Begin connection sequence
-    LEPTON_LOG_INFO("Connecting to echo.websocket.org:80 (WS)...");
+    LEPTON_LOG_INFO("Connecting to websockets.chilkat.io:80 (WS)...");
     ws.connect(ep);
 
     bool message_sent = false;

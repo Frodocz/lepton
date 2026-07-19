@@ -308,6 +308,38 @@ namespace detail {
         return r;
     }
 
+    // Dry run to check if all chunks are fully present before mutating the buffer.
+    bool all_present = false;
+    std::size_t dry_rp = body_start;
+    for (;;) {
+        std::size_t line_end = s.find("\r\n", dry_rp);
+        if (line_end == std::string_view::npos) {
+            break;
+        }
+        std::size_t chunk_sz = detail::parse_hex(s.substr(dry_rp, line_end - dry_rp));
+        if (chunk_sz == std::numeric_limits<std::size_t>::max()) {
+            all_present = true; // let actual run handle malformed error
+            break;
+        }
+        std::size_t data_start = line_end + 2;
+        if (chunk_sz == 0) {
+            std::size_t term = s.find("\r\n\r\n", line_end);
+            if (term == std::string_view::npos) {
+                break;
+            }
+            all_present = true;
+            break;
+        }
+        if (buf.size() < data_start + chunk_sz + 2) {
+            break;
+        }
+        dry_rp = data_start + chunk_sz + 2;
+    }
+
+    if (!all_present) {
+        return r;
+    }
+
     // Chunked: decode in place into the region starting at body_start.
     std::size_t rp = body_start;                 // read cursor (encoded)
     std::size_t wp = body_start;                 // write cursor (decoded)
