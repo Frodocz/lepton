@@ -1,16 +1,17 @@
-#include "lepton/net/detail/poller.h"
 #include "lepton/net/tcp_socket.h"
+#include "lepton/net/detail/poller.h"
+
+#include <gtest/gtest.h>
 
 #include <atomic>
 #include <chrono>
 #include <cstring>
 #include <thread>
 
+#include <unistd.h>
 #include <arpa/inet.h>
-#include <gtest/gtest.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
-#include <unistd.h>
 
 namespace lepton::net {
 namespace {

@@ -99,10 +99,10 @@ void WsSession<Transport>::start_connect() {
         teardown(WsState::Failed);
         return;
     }
+    set_state(WsState::Connecting);
     if (!registered_) {
         registered_ = loop_.add(*this);
     }
-    set_state(WsState::Connecting);
 }
 
 template <Stream Transport>

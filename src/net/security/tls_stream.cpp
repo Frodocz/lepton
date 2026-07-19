@@ -1,16 +1,16 @@
 /// @file tls_stream.cpp
 /// @brief Async OpenSSL TLS over an owned nonblocking TcpSocket.
 
-#include "lepton/net/tls_stream.h"
+#include "lepton/net/security/tls_stream.h"
 
 #include "lepton/base/logger.h"
 
+#include <openssl/err.h>
+#include <openssl/ssl.h>
+#include <openssl/x509v3.h>
+
 #include <cerrno>
 #include <utility>
-
-#include <openssl/ssl.h>
-#include <openssl/err.h>
-#include <openssl/x509v3.h>
 
 namespace lepton::security {
 
@@ -103,31 +103,46 @@ net::StreamPhase TlsStream::poll_open() {
             [[fallthrough]];
         }
         case TlsPhase::Handshaking: {
-            int r = ::SSL_do_handshake(ssl_);
-            if (r == 1) {
-                if (!pump()) {  // flush final handshake flight
+            for (;;) {
+                int r = ::SSL_do_handshake(ssl_);
+                if (r == 1) {
+                    if (!pump()) {  // flush final handshake flight
+                        return net::StreamPhase::Failed;
+                    }
+                    phase_ = TlsPhase::Established;
+                    LEPTON_LOG_INFO("TLS handshake complete ({})", ::SSL_get_version(ssl_));
+                    return net::StreamPhase::Open;
+                }
+                int err = ::SSL_get_error(ssl_, r);
+                if (err == SSL_ERROR_WANT_READ) {
+                    bool read_any = false;
+                    if (!pump_in(read_any)) {
+                        return net::StreamPhase::Failed;
+                    }
+                    if (!pump_out()) {
+                        return net::StreamPhase::Failed;
+                    }
+                    if (read_any) {
+                        continue; // Got new bytes in rbio; rerun handshake immediately
+                    }
+                    return net::StreamPhase::Connecting; // Wait for socket readability
+                } else if (err == SSL_ERROR_WANT_WRITE) {
+                    if (!pump_out()) {
+                        return net::StreamPhase::Failed;
+                    }
+                    continue; // Outbound space cleared; rerun handshake immediately
+                } else {
+                    LEPTON_LOG_WARN("TLS handshake error: ssl_err={}", err);
+                    unsigned long ossl_err;
+                    while ((ossl_err = ::ERR_get_error()) != 0) {
+                        char err_buf[256];
+                        ::ERR_error_string_n(ossl_err, err_buf, sizeof(err_buf));
+                        LEPTON_LOG_WARN("  OpenSSL details: {}", err_buf);
+                    }
+                    fail();
                     return net::StreamPhase::Failed;
                 }
-                phase_ = TlsPhase::Established;
-                LEPTON_LOG_INFO("TLS handshake complete ({})", ::SSL_get_version(ssl_));
-                return net::StreamPhase::Open;
             }
-            int err = ::SSL_get_error(ssl_, r);
-            if (err == SSL_ERROR_WANT_READ || err == SSL_ERROR_WANT_WRITE) {
-                if (!pump()) {
-                    return net::StreamPhase::Failed;
-                }
-                return net::StreamPhase::Connecting;  // still handshaking
-            }
-            LEPTON_LOG_WARN("TLS handshake error: ssl_err={}", err);
-            unsigned long ossl_err;
-            while ((ossl_err = ::ERR_get_error()) != 0) {
-                char err_buf[256];
-                ::ERR_error_string_n(ossl_err, err_buf, sizeof(err_buf));
-                LEPTON_LOG_WARN("  OpenSSL details: {}", err_buf);
-            }
-            fail();
-            return net::StreamPhase::Failed;
         }
         case TlsPhase::Established:
             return net::StreamPhase::Open;
@@ -139,6 +154,11 @@ net::StreamPhase TlsStream::poll_open() {
 }
 
 bool TlsStream::pump() noexcept {
+    bool dummy = false;
+    return pump_out() && pump_in(dummy);
+}
+
+bool TlsStream::pump_out() noexcept {
     thread_local alignas(64) uint8_t buf[kCipherChunk];
 
     // 1) Drain ciphertext OpenSSL produced (wbio) out to the socket.
@@ -163,6 +183,12 @@ bool TlsStream::pump() noexcept {
             off += static_cast<std::size_t>(w);
         }
     }
+    return true;
+}
+
+bool TlsStream::pump_in(bool& read_any) noexcept {
+    thread_local alignas(64) uint8_t buf[kCipherChunk];
+    read_any = false;
 
     // 2) Pull ciphertext from the socket INTO rbio for OpenSSL to consume.
     for (;;) {
@@ -170,17 +196,17 @@ bool TlsStream::pump() noexcept {
             break;  // backpressure: stop reading from socket to prevent memory exhaustion
         }
         net::sys::io_result r = tcp_.read(buf);
-        if (r == -EAGAIN) {
+        if (r > 0) {
+            read_any = true;
+            ::BIO_write(rbio_, buf, static_cast<int>(r));
+        } else if (r == -EAGAIN) {
             break;  // no more ciphertext right now
-        }
-        if (r == 0) {
+        } else if (r == 0) {
             // Peer closed the TCP connection.
             return true;  // let SSL_read surface it as EOF / close_notify
-        }
-        if (r < 0) {
+        } else {
             return false;
         }
-        ::BIO_write(rbio_, buf, static_cast<int>(r));
     }
     return true;
 }

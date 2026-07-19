@@ -64,3 +64,9 @@ target_link_libraries(with_fmtlog PRIVATE fmtlog)
 # Host uses spdlog(async); spdlog's pool thread and lepton's poll thread coexist.
 lepton_add_example(with_spdlog with_spdlog_logging.cpp)
 target_link_libraries(with_spdlog PRIVATE spdlog::spdlog)
+
+# E2E Protocol Examples (HTTP, HTTPS, WS, WSS)
+lepton_add_example(http_example http_example.cpp)
+lepton_add_example(https_example https_example.cpp)
+lepton_add_example(ws_example ws_example.cpp)
+lepton_add_example(wss_example wss_example.cpp)

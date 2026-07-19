@@ -9,9 +9,10 @@
 
 #include <cstdint>
 #include <cstring>
-#include <netinet/in.h>
 #include <optional>
 #include <string_view>
+
+#include <netinet/in.h>
 
 namespace lepton::net {
 

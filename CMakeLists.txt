@@ -9,7 +9,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 #-------------------------------------------------------------------------------------------------------
 # Options
 #-------------------------------------------------------------------------------------------------------
-option(LEPTON_BUILD_EXAMPLES "Build example programs" OFF)
+option(LEPTON_BUILD_EXAMPLES "Build example programs" ON)
 option(LEPTON_BUILD_MODULE "Build the experimental C++20 named module target." OFF)
 option(LEPTON_BUILD_TESTS "Build unit tests" ON)
 option(LEPTON_ENABLE_LOGGER "Enable logs for the framework" ON)
@@ -64,21 +64,27 @@ set(LEPTON_HEADERS
     include/lepton/base/io_buffer.h
     include/lepton/base/lepton_error.h
     include/lepton/base/logger.h
+    include/lepton/base/tsc_clock.h
 
     include/lepton/net/endpoint.h
+    include/lepton/net/event_loop.h
+    include/lepton/net/http.h
+    include/lepton/net/http_client.h
     include/lepton/net/stream.h
     include/lepton/net/tcp_socket.h
     include/lepton/net/ws_session.h
-    include/lepton/net/http_client.h
 
+    include/lepton/net/detail/base64.h
+    include/lepton/net/detail/http_client_impl.h
     include/lepton/net/detail/poller.h
     include/lepton/net/detail/sys_api.h
     include/lepton/net/detail/ws_frame.h
+    include/lepton/net/detail/ws_handshake_hash.h
     include/lepton/net/detail/ws_mask.h
     include/lepton/net/detail/ws_session_impl.h
-    include/lepton/net/detail/http_client_impl.h
 
-    include/lepton/security/tls_context.h
+    include/lepton/net/security/tls_context.h
+    include/lepton/net/security/tls_stream.h
 )
 
 set(LEPTON_SOURCES
@@ -87,7 +93,8 @@ set(LEPTON_SOURCES
     src/net/endpoint.cpp
     src/net/ws_mask.cpp
 
-    src/security/tls_context.cpp
+    src/net/security/tls_context.cpp
+    src/net/security/tls_stream.cpp
 )
 
 # -----------------------------------------------------------------------------

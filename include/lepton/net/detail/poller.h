@@ -22,8 +22,8 @@
 #include <ff_api.h>    // ff_close
 #include <ff_epoll.h>  // ff_epoll_create/ctl/wait
 #else
-#include <sys/epoll.h>
 #include <unistd.h>
+#include <sys/epoll.h>
 #endif
 
 #include <cerrno>

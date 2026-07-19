@@ -1,11 +1,11 @@
 #include "lepton/base/logger.h"
 
-#include "fmtlog.h"
-
 #include <atomic>
 #include <chrono>
 #include <iostream>
 #include <thread>
+
+#include "fmtlog.h"
 
 // -----------------------------------------------------------------------------
 // Scenario: the host uses fmtlog as ITS OWN logging library, and wants a single

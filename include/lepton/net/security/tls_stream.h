@@ -18,7 +18,7 @@
 #include "lepton/base/attributes.h"
 #include "lepton/net/stream.h"
 #include "lepton/net/tcp_socket.h"
-#include "lepton/security/tls_context.h"
+#include "lepton/net/security/tls_context.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -83,6 +83,8 @@ private:
     // Move ciphertext OUT of wbio to the socket and INTO rbio from the socket.
     // Returns false on a fatal transport error (socket dead).
     bool pump() noexcept;
+    bool pump_in(bool& read_any) noexcept;
+    bool pump_out() noexcept;
 
     void begin_handshake();
     void fail() noexcept;

@@ -4,11 +4,11 @@
 
 #include "lepton/base/attributes.h"
 
-#include <cassert>
-
-#include <quill/bundled/fmt/format.h>
 #include <quill/LogMacros.h>
 #include <quill/Logger.h>
+#include <quill/bundled/fmt/format.h>
+
+#include <cassert>
 
 // Debug-only guard: fires a clear message if a LEPTON_LOG_* is used before
 // lepton::init_logger() set the root logger. Compiles out entirely under

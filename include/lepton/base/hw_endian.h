@@ -8,6 +8,7 @@
 /// host endianness at compile-time, eliminating preprocessor macros.
 
 #include "lepton/base/attributes.h"
+
 #include <bit>
 #include <cstdint>
 

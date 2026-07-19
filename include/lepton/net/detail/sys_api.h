@@ -15,9 +15,9 @@
 
 #include "lepton/base/attributes.h"
 
+#include <cerrno>
 #include <cstddef>
 #include <cstdint>
-#include <cerrno>
 
 #if defined(LEPTON_USE_FSTACK)
 #include <ff_api.h>
@@ -26,11 +26,11 @@
 #include <sys/ioctl.h>   // FIONBIO for ff_ioctl-based nonblocking toggle
 #include <sys/socket.h>  // SOL_SOCKET / SO_* constants
 #else
-#include <sys/socket.h>
+#include <fcntl.h>
+#include <unistd.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
-#include <unistd.h>
-#include <fcntl.h>
+#include <sys/socket.h>
 #endif
 
 namespace lepton::net::sys {

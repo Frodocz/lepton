@@ -23,8 +23,9 @@
 #include <cstdlib>
 #include <limits>
 #include <new>
-#include <sys/mman.h>
+
 #include <unistd.h>
+#include <sys/mman.h>
 
 #if defined(LEPTON_USE_FSTACK)
 #include <rte_common.h>

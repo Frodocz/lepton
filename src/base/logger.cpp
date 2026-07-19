@@ -2,13 +2,13 @@
 
 #include "lepton/base/lepton_error.h"
 
-#include <memory>
-#include <vector>
-
 #include <quill/Backend.h>
 #include <quill/Frontend.h>
 #include <quill/sinks/ConsoleSink.h>
 #include <quill/sinks/RotatingFileSink.h>
+
+#include <memory>
+#include <vector>
 
 namespace lepton {
 

@@ -8,13 +8,13 @@
 /// Lives in `security` (uses OpenSSL SHA1) so `net/http.h` stays crypto-free;
 /// WsSession passes the sent key here to get the expected accept for validation.
 
-#include "lepton/security/base64.h"
+#include "lepton/net/detail/base64.h"
+
+#include <openssl/sha.h>
 
 #include <cstddef>
 #include <cstring>
 #include <string_view>
-
-#include <openssl/sha.h>
 
 namespace lepton::security {
 

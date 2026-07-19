@@ -8,8 +8,8 @@
 #include <cstring>
 #include <string>
 
-#include <arpa/inet.h>
 #include <netdb.h>
+#include <arpa/inet.h>
 
 namespace lepton::net {
 

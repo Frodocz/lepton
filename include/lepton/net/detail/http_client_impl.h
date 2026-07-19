@@ -144,10 +144,10 @@ void HttpClient<Transport>::start_connect() {
         fail();
         return;
     }
+    state_ = HttpState::Connecting;
     if (!registered_) {
         registered_ = loop_.add(*this);
     }
-    state_ = HttpState::Connecting;
 }
 
 template <Stream Transport>
