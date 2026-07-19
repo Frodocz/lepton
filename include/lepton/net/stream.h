@@ -18,7 +18,7 @@
 ///     -errno; partial writes are normal and the caller retries later.
 
 #include "lepton/net/endpoint.h"
-#include "lepton/net/sys_api.h"
+#include "lepton/net/detail/sys_api.h"
 
 #include <concepts>
 #include <cstdint>

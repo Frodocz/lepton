@@ -5,7 +5,7 @@
 ///        `Stream` concept, so it can be the transport for `WsSession` directly
 ///        (ws://) or the underlying transport for `TlsStream` (wss://).
 ///
-/// Thin by design: all syscalls go through `photon::net::sys::*`, so this class
+/// Thin by design: all syscalls go through `lepton::net::sys::*`, so this class
 /// is identical for POSIX and F-Stack. No buffering here — buffering and framing
 /// live in the protocol layers.
 
@@ -13,7 +13,7 @@
 #include "lepton/base/logger.h"
 #include "lepton/net/endpoint.h"
 #include "lepton/net/stream.h"
-#include "lepton/net/sys_api.h"
+#include "lepton/net/detail/sys_api.h"
 
 namespace lepton::net {
 

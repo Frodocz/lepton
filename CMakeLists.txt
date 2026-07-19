@@ -66,12 +66,17 @@ set(LEPTON_HEADERS
     include/lepton/base/logger.h
 
     include/lepton/net/endpoint.h
-    include/lepton/net/poller.h
     include/lepton/net/stream.h
-    include/lepton/net/sys_api.h
     include/lepton/net/tcp_socket.h
-    include/lepton/net/ws_frame.h
-    include/lepton/net/ws_mask.h
+    include/lepton/net/ws_session.h
+    include/lepton/net/http_client.h
+
+    include/lepton/net/detail/poller.h
+    include/lepton/net/detail/sys_api.h
+    include/lepton/net/detail/ws_frame.h
+    include/lepton/net/detail/ws_mask.h
+    include/lepton/net/detail/ws_session_impl.h
+    include/lepton/net/detail/http_client_impl.h
 
     include/lepton/security/tls_context.h
 )

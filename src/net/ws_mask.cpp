@@ -3,7 +3,7 @@
 ///        ws_mask.h — kept out of the header to avoid pulling <sys/random.h>
 ///        into every translation unit that frames WebSocket messages.
 
-#include "lepton/net/ws_mask.h"
+#include "lepton/net/detail/ws_mask.h"
 
 #include <ctime>
 
