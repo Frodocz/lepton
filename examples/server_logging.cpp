@@ -14,7 +14,7 @@ std::atomic<bool> g_keep_polling{true};
 
 void logger_worker() {
     // In production, pin this thread to a non-critical core here.
-    lepton::PollScope scope;
+    lepton::PollLoggerScope scope;
     while (g_keep_polling.load(std::memory_order_relaxed)) {
         lepton::poll_logger_for(50);
         std::this_thread::sleep_for(std::chrono::microseconds(5));

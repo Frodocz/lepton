@@ -241,7 +241,7 @@ int main() {
         .level = lepton::LogLevel::Info,
         .to_console = true
     });
-    lepton::PollScope logger_scope;
+    lepton::PollLoggerScope logger_scope;
 
     TscClock::calibrate();
 

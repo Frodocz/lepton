@@ -24,17 +24,17 @@ std::atomic<bool> g_keep_polling{true};
 
 void unified_poll_worker() {
     // RAII binds lepton's backend to THIS thread and drains+shuts down on exit.
-    lepton::PollScope scope;
+    lepton::PollLoggerScope scope;
     std::cout << "[Poll Thread] Polling lepton + fmtlog on one thread.\n";
     while (g_keep_polling.load(std::memory_order_relaxed)) {
         lepton::poll_logger_for(50);  // drain lepton (Quill) for up to 50us
         fmtlog::poll();               // drain fmtlog's queue
         std::this_thread::sleep_for(std::chrono::microseconds(5));
     }
-    // lepton's remaining records are drained by PollScope on scope exit; make
+    // lepton's remaining records are drained by PollLoggerScope on scope exit; make
     // sure fmtlog's tail is flushed too.
     fmtlog::poll();
-    std::cout << "[Poll Thread] Stop signalled; PollScope will drain lepton on exit.\n";
+    std::cout << "[Poll Thread] Stop signalled; PollLoggerScope will drain lepton on exit.\n";
 }
 
 int main() {

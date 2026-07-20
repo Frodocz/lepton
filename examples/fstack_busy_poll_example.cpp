@@ -355,7 +355,7 @@ int main(int argc, char* argv[]) {
     // 5. Spawn Logger Thread (polls Quill backend worker every 5us)
     std::thread logger_thread([&]() {
         pin_thread_to_core(3);
-        lepton::PollScope scope;
+        lepton::PollLoggerScope scope;
         while (g_running) {
             lepton::poll_logger_for(5);
             // Precise busy wait sleep for 5us (5000 ns)

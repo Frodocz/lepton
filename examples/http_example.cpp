@@ -16,7 +16,7 @@ int main() {
         .level = lepton::LogLevel::Info,
         .to_console = true
     });
-    lepton::PollScope logger_scope;
+    lepton::PollLoggerScope logger_scope;
 
     // 1. Initialize EventLoop and BufferPool
     net::EventLoopConfig loop_cfg{.busy_poll = false}; // Epoll mode for low idle CPU usage

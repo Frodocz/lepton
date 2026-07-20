@@ -14,7 +14,7 @@
 //
 // spdlog's async mode owns its OWN backing thread pool -- you do not poll spdlog
 // by hand. So lepton contributes ONE dedicated poll thread (which you own and
-// drive via PollScope) and spdlog runs its own pool thread; the two coexist.
+// drive via PollLoggerScope) and spdlog runs its own pool thread; the two coexist.
 //
 // In production you would pin BOTH background threads to the same non-critical
 // core so your hot cores stay clean.
@@ -25,13 +25,13 @@ std::atomic<bool> g_keep_polling{true};
 void lepton_poll_worker() {
     // RAII: start_logger() binds lepton's backend to THIS thread; stop_logger()
     // (drain + shutdown) runs when the scope exits.
-    lepton::PollScope scope;
+    lepton::PollLoggerScope scope;
     std::cout << "[Poll Thread] lepton poll worker started.\n";
     while (g_keep_polling.load(std::memory_order_relaxed)) {
         lepton::poll_logger_for(50);
         std::this_thread::sleep_for(std::chrono::microseconds(5));
     }
-    std::cout << "[Poll Thread] Stop signalled; PollScope will drain on exit.\n";
+    std::cout << "[Poll Thread] Stop signalled; PollLoggerScope will drain on exit.\n";
 }
 
 int main() {

@@ -7,7 +7,7 @@
 #include <vector>
 
 // This test demonstrates the core lepton integration model: YOU own a dedicated
-// poll thread and drive the loop. lepton::PollScope binds the backend to that
+// poll thread and drive the loop. lepton::PollLoggerScope binds the backend to that
 // thread on construction and drains + shuts it down on scope exit, so the whole
 // start/poll/stop lifecycle stays on one thread with no manual teardown.
 
@@ -20,13 +20,13 @@ void dedicated_logger_worker() noexcept {
     // CPU_SET(0, &cpuset); // Bind to Core 0
     // pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
 
-    lepton::PollScope scope;  // start_logger() now; stop_logger() on scope exit
+    lepton::PollLoggerScope scope;  // start_logger() now; stop_logger() on scope exit
     std::cout << "[Logger Thread] Dedicated background polling worker started.\n";
     while (g_keep_polling.load(std::memory_order_relaxed)) {
         lepton::poll_logger_once();
         std::this_thread::sleep_for(std::chrono::microseconds(5));
     }
-    std::cout << "[Logger Thread] Stop signalled; PollScope will drain on exit.\n";
+    std::cout << "[Logger Thread] Stop signalled; PollLoggerScope will drain on exit.\n";
 }
 
 void critical_path_worker(int thread_id) {
@@ -79,7 +79,7 @@ int main() {
     LEPTON_LOG_ERROR("Error level log should appear as before");
     LEPTON_LOG_WARN("Change of level should not affect previous critical engine threads Debug level logs");
 
-    // Signal the poll thread to stop, then join it (PollScope drains on exit).
+    // Signal the poll thread to stop, then join it (PollLoggerScope drains on exit).
     std::cout << "[Main] Signaling dedicated logger thread to stop...\n";
     g_keep_polling.store(false, std::memory_order_relaxed);
     if (logger_thread.joinable()) {

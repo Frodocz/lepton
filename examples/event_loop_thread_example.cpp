@@ -21,7 +21,7 @@ int main(int argc, char* argv[]) {
         .level = lepton::LogLevel::Debug,
         .to_console = true
     });
-    lepton::PollScope logger_scope;
+    lepton::PollLoggerScope logger_scope;
 
     TscClock::calibrate();
 

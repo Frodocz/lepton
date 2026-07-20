@@ -21,7 +21,7 @@
 // Because the backend polls ALL thread-local SPSC queues, a SINGLE poll loop --
 // lepton's -- drains both lepton's logs and the host's own logs on one thread.
 //
-// The host drives the poll loop itself, using lepton::PollScope (RAII) to bind
+// The host drives the poll loop itself, using lepton::PollLoggerScope (RAII) to bind
 // the backend to this thread and drain+shutdown on scope exit, and
 // poll_logger_for() to bound the time spent per iteration -- the natural fit
 // when one thread/core services every logger in the process.
@@ -36,7 +36,7 @@ void unified_poll_worker() {
     // RAII: start_logger() binds the backend to THIS thread now; stop_logger()
     // (drain + shutdown) runs automatically when the scope exits. Everything on
     // one thread, satisfying Quill's same-thread contract.
-    lepton::PollScope scope;
+    lepton::PollLoggerScope scope;
     std::cout << "[Poll Thread] Unified backend poll worker started.\n";
     while (g_keep_polling.load(std::memory_order_relaxed)) {
         // Bounded drain: process for up to 50us, then yield to whatever else this

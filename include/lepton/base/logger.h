@@ -87,7 +87,7 @@ LEPTON_API void set_log_level(LogLevel level) noexcept;
 //   - start_logger() binds the backend worker to the calling thread.
 //   - poll_logger_*() drain queued records; call repeatedly in your loop.
 //   - stop_logger() flushes the remaining records and releases the worker.
-// Prefer the PollScope RAII helper below over calling start/stop by hand.
+// Prefer the PollLoggerScope RAII helper below over calling start/stop by hand.
 LEPTON_API void start_logger();
 LEPTON_API void stop_logger();
 
@@ -99,26 +99,26 @@ LEPTON_API void stop_logger();
 LEPTON_API void poll_logger_once();
 LEPTON_API void poll_logger_for(unsigned timeout_us);
 
-// PollScope: RAII binding of the backend worker to the CURRENT thread. Binds on
+// PollLoggerScope: RAII binding of the backend worker to the CURRENT thread. Binds on
 // construction, drains + releases on destruction — both on this thread. 
 // This is the intended way to run the poll loop:
 //
 //   void my_logging_thread() {
-//       lepton::PollScope scope;                 // start_logger() here
+//       lepton::PollLoggerScope scope;           // start_logger() here
 //       while (running) {
 //           lepton::poll_logger_for(50);         // drain lepton logs
 //           fmtlog::poll();                      // drain the host's own logs
 //       }
 //   }  // <- stop_logger() (drain + shutdown) here, same thread
-class PollScope {
+class PollLoggerScope {
 public:
-    PollScope() noexcept { start_logger(); }
-    ~PollScope() noexcept { stop_logger(); }
+    PollLoggerScope() noexcept { start_logger(); }
+    ~PollLoggerScope() noexcept { stop_logger(); }
 
-    PollScope(PollScope const&) = delete;
-    PollScope& operator=(PollScope const&) = delete;
-    PollScope(PollScope&&) = delete;
-    PollScope& operator=(PollScope&&) = delete;
+    PollLoggerScope(PollLoggerScope const&) = delete;
+    PollLoggerScope& operator=(PollLoggerScope const&) = delete;
+    PollLoggerScope(PollLoggerScope&&) = delete;
+    PollLoggerScope& operator=(PollLoggerScope&&) = delete;
 };
 
 namespace fmt = ::fmtquill;

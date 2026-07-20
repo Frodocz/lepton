@@ -17,7 +17,7 @@ int main() {
         .level = lepton::LogLevel::Debug,
         .to_console = true
     });
-    lepton::PollScope logger_scope;
+    lepton::PollLoggerScope logger_scope;
 
     // 1. Initialize EventLoop, BufferPool, and TlsContext
     net::EventLoopConfig loop_cfg{.busy_poll = false};
