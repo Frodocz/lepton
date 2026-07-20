@@ -153,7 +153,12 @@ public:
 #endif
     }
 
-    void stop() noexcept { running_ = false; }
+    void stop() noexcept {
+        running_ = false;
+#if defined(LEPTON_USE_FSTACK)
+        ff_stop_run();
+#endif
+    }
 
     [[nodiscard]] bool busy_poll() const noexcept { return cfg_.busy_poll; }
     [[nodiscard]] std::size_t session_count() const noexcept { return sessions_.size(); }
