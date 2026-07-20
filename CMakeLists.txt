@@ -68,6 +68,7 @@ set(LEPTON_HEADERS
 
     include/lepton/net/endpoint.h
     include/lepton/net/event_loop.h
+    include/lepton/net/event_loop_thread.h
     include/lepton/net/http.h
     include/lepton/net/http_client.h
     include/lepton/net/stream.h
@@ -91,6 +92,7 @@ set(LEPTON_SOURCES
     src/base/logger.cpp
 
     src/net/endpoint.cpp
+    src/net/event_loop_thread.cpp
     src/net/ws_mask.cpp
 
     src/net/security/tls_context.cpp

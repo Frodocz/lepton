@@ -20,6 +20,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <vector>
+#include <atomic>
 
 #if defined(LEPTON_USE_FSTACK)
 #include <ff_api.h>  // ff_run
@@ -181,7 +182,7 @@ private:
     StepHook step_hook_{};
     int current_event_idx_{-1};
     int current_event_count_{0};
-    bool running_{false};
+    std::atomic<bool> running_{false};
 };
 
 } // namespace lepton::net
