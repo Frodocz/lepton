@@ -227,6 +227,8 @@ inline void print_single_report(const char* title, std::vector<int64_t>& handoff
                 net_mean / 1'000'000.0, parse_mean, handoff_mean, e2e_mean / 1'000'000.0);
 }
 
+#include "lepton/init.h"
+
 int main(int argc, char* argv[]) {
     // 0. Initialize Logger and bind manual backend worker to this thread
     lepton::init_logger({
@@ -234,17 +236,9 @@ int main(int argc, char* argv[]) {
         .to_console = true
     });
 
-    // 1. Initialize F-Stack DPDK network stack if enabled
-#if defined(LEPTON_USE_FSTACK)
-    LEPTON_LOG_INFO("Initializing F-Stack DPDK userspace stack...");
-    if (ff_init(argc, argv) < 0) {
-        LEPTON_LOG_ERROR("Failed to initialize F-Stack!");
+    if (lepton::init(argc, argv, "fstack_busy_poll_example") < 0) {
         return 1;
     }
-#else
-    (void)argc;
-    (void)argv;
-#endif
 
     // Calibrate high-performance TSC clock
     TscClock::calibrate();

@@ -1,5 +1,6 @@
 #include "lepton/base/buffer_pool.h"
 #include "lepton/base/logger.h"
+#include "lepton/init.h"
 #include "lepton/net/event_loop.h"
 #include "lepton/net/http_client.h"
 #include "lepton/net/security/tls_context.h"
@@ -11,12 +12,16 @@
 
 using namespace lepton;
 
-int main() {
+int main(int argc, char* argv[]) {
     // 0. Initialize Logger
     lepton::init_logger({
         .level = lepton::LogLevel::Info,
         .to_console = true
     });
+
+    if (lepton::init(argc, argv, "https_example") < 0) {
+        return 1;
+    }
 
     // Background logger thread managed by std::jthread and std::stop_token
     std::jthread logger_thread([](std::stop_token stoken) {

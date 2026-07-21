@@ -14,7 +14,6 @@ void logger_worker(std::stop_token stoken) {
     lepton::PollLoggerScope scope;
     while (!stoken.stop_requested()) {
         lepton::poll_logger_for(50);
-        std::this_thread::sleep_for(std::chrono::microseconds(5));
     }
 }
 

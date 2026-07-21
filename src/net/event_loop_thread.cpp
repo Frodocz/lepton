@@ -1,9 +1,6 @@
 #include "lepton/net/event_loop_thread.h"
+#include "lepton/init.h"
 #include "lepton/base/logger.h"
-
-#if defined(LEPTON_USE_FSTACK)
-#include <ff_api.h>
-#endif
 
 namespace lepton::net {
 
@@ -28,7 +25,7 @@ bool EventLoopThread::start() {
     thread_ = std::thread([this, &init_state]() {
 #if defined(LEPTON_USE_FSTACK)
         LEPTON_LOG_INFO("[EventLoopThread] Initializing F-Stack inside background thread...");
-        if (ff_init(argc_, argv_) < 0) {
+        if (lepton::init(argc_, argv_, "event_loop_thread") < 0) {
             LEPTON_LOG_ERROR("[EventLoopThread] F-Stack initialization failed!");
             init_state.store(2, std::memory_order_release);
             init_state.notify_one();
@@ -67,7 +64,6 @@ bool EventLoopThread::start() {
     });
 
     // C++20 atomic wait: blocks the calling thread until the value of init_state changes from 0.
-    // On Linux, this is a highly optimized futex call.
     init_state.wait(0, std::memory_order_acquire);
 
     if (init_state.load(std::memory_order_acquire) != 1) {

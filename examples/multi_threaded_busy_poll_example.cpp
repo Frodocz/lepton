@@ -21,7 +21,9 @@
 #include <atomic>
 #include <chrono>
 #include <cstring>
+#include <filesystem>
 #include <iostream>
+#include <string>
 #include <thread>
 #include <vector>
 
@@ -236,18 +238,23 @@ inline void print_single_report(const char* title, std::vector<int64_t>& handoff
                 net_mean / 1'000'000.0, parse_mean, handoff_mean, e2e_mean / 1'000'000.0);
 }
 
-int main() {
+#include "lepton/init.h"
+
+int main(int argc, char* argv[]) {
     lepton::init_logger({
         .level = lepton::LogLevel::Info,
         .to_console = true
     });
+
+    if (lepton::init(argc, argv, "multi_threaded_busy_poll_example") < 0) {
+        return 1;
+    }
 
     std::jthread logger_thread([](std::stop_token stoken) {
         pin_thread_to_core(3);
         lepton::PollLoggerScope scope;
         while (!stoken.stop_requested()) {
             lepton::poll_logger_for(50);
-            std::this_thread::sleep_for(std::chrono::microseconds(5));
         }
     });
 

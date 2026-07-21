@@ -1,6 +1,8 @@
 #include "lepton/base/logger.h"
+#include "lepton/init.h"
 
 #include <gtest/gtest.h>
+#include <chrono>
 #include <thread>
 
 int main(int argc, char** argv) {
@@ -8,6 +10,10 @@ int main(int argc, char** argv) {
         .level = lepton::LogLevel::Debug,
         .to_console = true
     });
+
+    if (lepton::init(argc, argv, "lepton_test") < 0) {
+        return 1;
+    }
 
     // Background logger polling thread using C++20 std::jthread and std::stop_token
     std::jthread logger_thread([](std::stop_token stoken) {

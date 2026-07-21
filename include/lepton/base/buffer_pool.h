@@ -85,19 +85,14 @@ public:
         
         int flags = MAP_PRIVATE | MAP_ANONYMOUS;
         if (hugepage) {
-            // Explicit Huge Pages: size must be a multiple of 2MB (default hugepage size on x86_64)
             const std::size_t hugepage_size = 2 * 1024 * 1024;
             allocated_size_ = (total + hugepage_size - 1) & ~(hugepage_size - 1);
             
-            // 1. Try allocating with explicit huge pages (MAP_HUGETLB)
             arena_ = static_cast<uint8_t*>(::mmap(nullptr, allocated_size_, PROT_READ | PROT_WRITE, flags | MAP_HUGETLB, -1, 0));
             if (arena_ == MAP_FAILED) {
-                // 2. Fallback to standard anonymous mmap if MAP_HUGETLB fails
                 allocated_size_ = total;
                 arena_ = static_cast<uint8_t*>(::mmap(nullptr, allocated_size_, PROT_READ | PROT_WRITE, flags, -1, 0));
                 if (arena_ != MAP_FAILED) {
-                    // Transparent Huge Pages (THP) compaction/promotion can introduce latency spikes (defrag jitter) on hot paths.
-                    // We explicitly set MADV_NOHUGEPAGE to prevent the kernel from attempting background consolidation on our pool.
                     (void)::madvise(arena_, allocated_size_, MADV_NOHUGEPAGE);
                 } else {
                     arena_ = nullptr;
@@ -113,17 +108,11 @@ public:
         }
         
         if (arena_ != nullptr) {
-            // Lock pages in physical memory (swap-out prevention)
             if (::mlock(arena_, allocated_size_) != 0) {
-                LEPTON_LOG_WARN("BufferPool: mlock failed (errno={}): memory pages may be swapped out. "
-                                "Check ulimit -l and /etc/security/limits.conf", errno);
+                LEPTON_LOG_WARN("BufferPool: mlock failed (errno={}): memory pages may be swapped out.", errno);
             }
-            // Disable core-dumping this pool to prevent slow, blocking disk writes on crashes
             (void)::madvise(arena_, allocated_size_, MADV_DONTDUMP);
-        }
 
-        if (arena_ != nullptr) {
-            // Pre-fault (warm) the memory pool page-by-page (stride 4KB) to avoid page faults on the hot path
             for (std::size_t offset = 0; offset < allocated_size_; offset += 4096) {
                 arena_[offset] = 0;
             }
@@ -131,16 +120,14 @@ public:
                 arena_[allocated_size_ - 1] = 0;
             }
 
-            // Intrusively link all free buffers: index 0 -> 1 -> 2 -> ... -> count-1
             for (std::size_t i = 0; i < count_ - 1; ++i) {
                 auto* node = reinterpret_cast<FreeNode*>(arena_ + i * buf_size_);
                 node->next_idx = static_cast<uint32_t>(i + 1);
             }
-            // Sentinel value for the tail of the list
             auto* last_node = reinterpret_cast<FreeNode*>(arena_ + (count_ - 1) * buf_size_);
             last_node->next_idx = std::numeric_limits<uint32_t>::max();
 
-            head_free_val_.store(0, std::memory_order_relaxed); // version 0, index 0
+            head_free_val_.store(0, std::memory_order_relaxed);
             available_.store(count_, std::memory_order_relaxed);
         }
 #endif
@@ -186,11 +173,9 @@ public:
                 return {}; // Empty pool
             }
             
-            // Read the next index from the buffer
             auto* node = reinterpret_cast<FreeNode*>(arena_ + idx * buf_size_);
             int32_t next_idx = static_cast<int32_t>(node->next_idx);
             
-            // Increment version and package next_idx
             uint32_t new_version = static_cast<uint32_t>((old_val >> 32) + 1);
             uint64_t new_val = (static_cast<uint64_t>(new_version) << 32) | (static_cast<uint32_t>(next_idx) & 0xFFFFFFFFULL);
             
@@ -220,10 +205,11 @@ public:
         buf = IOBuffer{}; // Clear handle to protect against double release
 #else
 #ifndef NDEBUG
-        // Verify buffer belongs to this pool (bounds and alignment safety check)
-        const std::size_t offset = static_cast<std::size_t>(buf.base_ - arena_);
-        assert(buf.base_ >= arena_ && offset < count_ * buf_size_);
-        assert(offset % buf_size_ == 0);
+        if (arena_ != nullptr) {
+            const std::size_t offset = static_cast<std::size_t>(buf.base_ - arena_);
+            assert(buf.base_ >= arena_ && offset < count_ * buf_size_);
+            assert(offset % buf_size_ == 0);
+        }
 #endif
 
         std::size_t idx = static_cast<std::size_t>(buf.base_ - arena_) / buf_size_;
