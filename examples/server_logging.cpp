@@ -5,17 +5,14 @@
 
 #include "lepton/base/logger.h"
 
-#include <atomic>
 #include <chrono>
 #include <iostream>
 #include <thread>
 
-std::atomic<bool> g_keep_polling{true};
-
-void logger_worker() {
+void logger_worker(std::stop_token stoken) {
     // In production, pin this thread to a non-critical core here.
     lepton::PollLoggerScope scope;
-    while (g_keep_polling.load(std::memory_order_relaxed)) {
+    while (!stoken.stop_requested()) {
         lepton::poll_logger_for(50);
         std::this_thread::sleep_for(std::chrono::microseconds(5));
     }
@@ -38,7 +35,7 @@ int main() {
         return 1;
     }
 
-    std::thread logger_thread(logger_worker);
+    std::jthread logger_thread(logger_worker);
 
     // DEBUG is compiled out
     LEPTON_LOG_DEBUG("compiled out, never appears {}", 42);
@@ -54,10 +51,6 @@ int main() {
     LEPTON_LOG_ERROR("only errors get through now");
 
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
-    g_keep_polling.store(false, std::memory_order_relaxed);
-    if (logger_thread.joinable()) {
-        logger_thread.join();
-    }
 
     std::cout << "[Main] server logging example completed. See server*.log.\n";
     return 0;

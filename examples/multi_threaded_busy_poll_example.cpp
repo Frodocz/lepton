@@ -241,7 +241,15 @@ int main() {
         .level = lepton::LogLevel::Info,
         .to_console = true
     });
-    lepton::PollLoggerScope logger_scope;
+
+    std::jthread logger_thread([](std::stop_token stoken) {
+        pin_thread_to_core(3);
+        lepton::PollLoggerScope scope;
+        while (!stoken.stop_requested()) {
+            lepton::poll_logger_for(50);
+            std::this_thread::sleep_for(std::chrono::microseconds(5));
+        }
+    });
 
     TscClock::calibrate();
 

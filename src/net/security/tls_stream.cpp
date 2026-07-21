@@ -159,7 +159,7 @@ bool TlsStream::pump() noexcept {
 }
 
 bool TlsStream::pump_out() noexcept {
-    thread_local alignas(64) uint8_t buf[kCipherChunk];
+    alignas(64) thread_local uint8_t buf[kCipherChunk];
 
     // 1) Drain ciphertext OpenSSL produced (wbio) out to the socket.
     for (;;) {
@@ -187,7 +187,7 @@ bool TlsStream::pump_out() noexcept {
 }
 
 bool TlsStream::pump_in(bool& read_any) noexcept {
-    thread_local alignas(64) uint8_t buf[kCipherChunk];
+    alignas(64) thread_local uint8_t buf[kCipherChunk];
     read_any = false;
 
     // 2) Pull ciphertext from the socket INTO rbio for OpenSSL to consume.

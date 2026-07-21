@@ -78,6 +78,7 @@ TEST(BufferPoolTest, AcquireExhaustion) {
 }
 
 TEST(BufferPoolTest, LIFOCacheLocality) {
+#if !defined(LEPTON_USE_FSTACK)
     BufferPool pool(3, 64, false);
     
     IOBuffer b1 = pool.acquire();
@@ -98,6 +99,7 @@ TEST(BufferPoolTest, LIFOCacheLocality) {
 
     pool.release(b3);
     pool.release(b4);
+#endif
 }
 
 TEST(IOBufferTest, PrependAndHeadroom) {

@@ -14,6 +14,7 @@
 
 #include "lepton/base/attributes.h"
 #include "lepton/base/io_buffer.h"
+#include "lepton/base/lepton_error.h"
 #include "lepton/base/logger.h"
 
 #include <atomic>

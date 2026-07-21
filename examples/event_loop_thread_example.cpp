@@ -21,7 +21,14 @@ int main(int argc, char* argv[]) {
         .level = lepton::LogLevel::Debug,
         .to_console = true
     });
-    lepton::PollLoggerScope logger_scope;
+
+    // Background logger thread managed by std::jthread and std::stop_token
+    std::jthread logger_thread([](std::stop_token stoken) {
+        lepton::PollLoggerScope scope;
+        while (!stoken.stop_requested()) {
+            lepton::poll_logger_for(100);
+        }
+    });
 
     TscClock::calibrate();
 

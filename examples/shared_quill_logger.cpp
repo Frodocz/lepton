@@ -5,7 +5,6 @@
 #include "quill/Logger.h"
 #include "quill/sinks/ConsoleSink.h"
 
-#include <atomic>
 #include <chrono>
 #include <iostream>
 #include <thread>
@@ -27,22 +26,19 @@
 // when one thread/core services every logger in the process.
 // -----------------------------------------------------------------------------
 
-std::atomic<bool> g_keep_polling{true};
-
 // The host application's own Quill logger (separate sink, separate name).
 quill::Logger* g_app_logger = nullptr;
 
-void unified_poll_worker() {
+void unified_poll_worker(std::stop_token stoken) {
     // RAII: start_logger() binds the backend to THIS thread now; stop_logger()
     // (drain + shutdown) runs automatically when the scope exits. Everything on
     // one thread, satisfying Quill's same-thread contract.
     lepton::PollLoggerScope scope;
     std::cout << "[Poll Thread] Unified backend poll worker started.\n";
-    while (g_keep_polling.load(std::memory_order_relaxed)) {
+    while (!stoken.stop_requested()) {
         // Bounded drain: process for up to 50us, then yield to whatever else this
         // shared logging thread is responsible for.
         lepton::poll_logger_for(50);
-        std::this_thread::sleep_for(std::chrono::microseconds(5));
     }
     std::cout << "[Poll Thread] Draining remaining logs before exit...\n";
 }
@@ -59,24 +55,15 @@ int main() {
     g_app_logger->set_log_level(quill::LogLevel::Debug);
     std::cout << "[Main] Host application Quill logger created.\n";
 
-    // 3. Start the single unified poll thread (host-owned).
-    std::thread poll_thread(unified_poll_worker);
+    // 3. Start the single unified poll thread (host-owned) via std::jthread and std::stop_token.
+    std::jthread poll_thread(unified_poll_worker);
 
     // 4. Interleave lepton logs and host-app logs from the main thread. Both flow
     //    through the same backend and are drained by the same poll loop.
-    // NOTE: lepton's header defines QUILL_DISABLE_NON_PREFIXED_MACROS, so the bare
-    // LOG_INFO macro is unavailable. Host code that includes lepton uses the
-    // QUILL_-prefixed macros (or its own wrappers) for its own loggers.
     for (int i = 0; i < 5; ++i) {
         LEPTON_LOG_INFO("[lepton] network event #{}", i);
         QUILL_LOG_INFO(g_app_logger, "[app] business event #{}", i);
         std::this_thread::sleep_for(std::chrono::milliseconds(5));
-    }
-
-    std::cout << "[Main] Finished emitting logs; stopping poll thread...\n";
-    g_keep_polling.store(false, std::memory_order_relaxed);
-    if (poll_thread.joinable()) {
-        poll_thread.join();
     }
 
     std::cout << "[Main] Shared-backend logging scenario completed successfully.\n";

@@ -12,12 +12,19 @@
 using namespace lepton;
 
 int main() {
-    // 0. Initialize Logger and bind manual backend worker to this thread
+    // 0. Initialize Logger
     lepton::init_logger({
         .level = lepton::LogLevel::Debug,
         .to_console = true
     });
-    lepton::PollLoggerScope logger_scope;
+
+    // Background logger thread managed by std::jthread and std::stop_token
+    std::jthread logger_thread([](std::stop_token stoken) {
+        lepton::PollLoggerScope scope;
+        while (!stoken.stop_requested()) {
+            lepton::poll_logger_for(100);
+        }
+    });
 
     // 1. Initialize EventLoop, BufferPool, and TlsContext
     net::EventLoopConfig loop_cfg{.busy_poll = false};
@@ -77,7 +84,6 @@ int main() {
     // 5. Run EventLoop
     while (!finished) {
         loop.step();
-        lepton::poll_logger_for(100);
 
         if (ws.state() == net::WsState::Open && !subscribed) {
             LEPTON_LOG_INFO("WSS handshake complete. Sending OKX BTC-USDT subscription JSON...");

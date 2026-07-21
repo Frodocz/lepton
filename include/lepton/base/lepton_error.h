@@ -26,6 +26,15 @@
     #define LEPTON_CATCH(x) if (false)
     #define LEPTON_CATCH_ALL() if (false)
 #else
+    #define LEPTON_REQUIRE(expression, error)                            \
+        do                                                               \
+        {                                                                \
+            if (!(expression)) [[unlikely]]                              \
+            {                                                            \
+                throw lepton::LeptonError(error);                       \
+            }                                                            \
+        } while (0)
+
     #define LEPTON_TRY try
     #define LEPTON_THROW(ex) throw(ex)
     #define LEPTON_CATCH(x) catch (x)

@@ -1,6 +1,5 @@
 #include "lepton/base/logger.h"
 
-#include <atomic>
 #include <chrono>
 #include <iostream>
 #include <thread>
@@ -20,13 +19,11 @@
 // / media hot path never pays for log formatting or I/O.
 // -----------------------------------------------------------------------------
 
-std::atomic<bool> g_keep_polling{true};
-
-void unified_poll_worker() {
+void unified_poll_worker(std::stop_token stoken) {
     // RAII binds lepton's backend to THIS thread and drains+shuts down on exit.
     lepton::PollLoggerScope scope;
     std::cout << "[Poll Thread] Polling lepton + fmtlog on one thread.\n";
-    while (g_keep_polling.load(std::memory_order_relaxed)) {
+    while (!stoken.stop_requested()) {
         lepton::poll_logger_for(50);  // drain lepton (Quill) for up to 50us
         fmtlog::poll();               // drain fmtlog's queue
         std::this_thread::sleep_for(std::chrono::microseconds(5));
@@ -44,18 +41,12 @@ int main() {
     // fmtlog::startPollingThread() -- that would spawn a second poller.
     std::cout << "[Main] lepton + fmtlog initialized.\n";
 
-    std::thread poll_thread(unified_poll_worker);
+    std::jthread poll_thread(unified_poll_worker);
 
     for (int i = 0; i < 5; ++i) {
         LEPTON_LOG_INFO("[lepton] packet received, seq={}", i);
         logi("[fmtlog] app processed order {}", i);
         std::this_thread::sleep_for(std::chrono::milliseconds(5));
-    }
-
-    std::cout << "[Main] Stopping unified poll thread...\n";
-    g_keep_polling.store(false, std::memory_order_relaxed);
-    if (poll_thread.joinable()) {
-        poll_thread.join();
     }
 
     std::cout << "[Main] fmtlog integration example completed. "

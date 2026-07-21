@@ -11,19 +11,26 @@
 using namespace lepton;
 
 int main() {
-    // 0. Initialize Logger and bind manual backend worker to this thread
+    // 0. Initialize Logger
     lepton::init_logger({
         .level = lepton::LogLevel::Debug,
         .to_console = true
     });
-    lepton::PollLoggerScope logger_scope;
+
+    // Background logger thread managed by std::jthread and std::stop_token
+    std::jthread logger_thread([](std::stop_token stoken) {
+        lepton::PollLoggerScope scope;
+        while (!stoken.stop_requested()) {
+            lepton::poll_logger_for(100);
+        }
+    });
 
     // 1. Initialize EventLoop and BufferPool
     net::EventLoopConfig loop_cfg{.busy_poll = false};
     net::EventLoop loop(loop_cfg);
     BufferPool pool(16, 4096, false);
 
-    // 2. Resolve endpoint (echo.websocket.org on port 80)
+    // 2. Resolve endpoint (websockets.chilkat.io on port 80)
     auto ep_opt = net::Endpoint{}.resolve("websockets.chilkat.io", 80);
     if (!ep_opt) {
         LEPTON_LOG_ERROR("Failed to resolve websockets.chilkat.io");
@@ -62,7 +69,6 @@ int main() {
     // 5. Run EventLoop
     while (!finished) {
         loop.step();
-        lepton::poll_logger_for(100);
 
         if (ws.state() == net::WsState::Open && !message_sent) {
             LEPTON_LOG_INFO("WebSocket handshakes complete. Sending text frame...");

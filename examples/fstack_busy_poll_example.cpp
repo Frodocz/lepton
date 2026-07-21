@@ -353,10 +353,10 @@ int main(int argc, char* argv[]) {
     });
 
     // 5. Spawn Logger Thread (polls Quill backend worker every 5us)
-    std::thread logger_thread([&]() {
+    std::jthread logger_thread([&](std::stop_token stoken) {
         pin_thread_to_core(3);
         lepton::PollLoggerScope scope;
-        while (g_running) {
+        while (g_running && !stoken.stop_requested()) {
             lepton::poll_logger_for(5);
             // Precise busy wait sleep for 5us (5000 ns)
             int64_t start_sleep = TscClock::tscns();
@@ -441,7 +441,6 @@ int main(int argc, char* argv[]) {
     // 7. Cleanup & Print Reports
     g_running = false;
     core_thread.join();
-    logger_thread.join();
 
     // Print percentile reports
     std::printf("\n\n===========================================================================================");

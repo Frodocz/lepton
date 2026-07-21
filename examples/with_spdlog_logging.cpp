@@ -4,7 +4,6 @@
 #include "spdlog/sinks/basic_file_sink.h"
 #include "spdlog/spdlog.h"
 
-#include <atomic>
 #include <chrono>
 #include <iostream>
 #include <thread>
@@ -20,16 +19,13 @@
 // core so your hot cores stay clean.
 // -----------------------------------------------------------------------------
 
-std::atomic<bool> g_keep_polling{true};
-
-void lepton_poll_worker() {
+void lepton_poll_worker(std::stop_token stoken) {
     // RAII: start_logger() binds lepton's backend to THIS thread; stop_logger()
     // (drain + shutdown) runs when the scope exits.
     lepton::PollLoggerScope scope;
     std::cout << "[Poll Thread] lepton poll worker started.\n";
-    while (g_keep_polling.load(std::memory_order_relaxed)) {
+    while (!stoken.stop_requested()) {
         lepton::poll_logger_for(50);
-        std::this_thread::sleep_for(std::chrono::microseconds(5));
     }
     std::cout << "[Poll Thread] Stop signalled; PollLoggerScope will drain on exit.\n";
 }
@@ -45,7 +41,7 @@ int main() {
     std::cout << "[Main] lepton + spdlog(async) initialized.\n";
 
     // lepton's own poll thread coexists with spdlog's pool thread.
-    std::thread poll_thread(lepton_poll_worker);
+    std::jthread poll_thread(lepton_poll_worker);
 
     // Both loggers are usable from any thread; each has its own background thread
     // doing the formatting and I/O.
@@ -53,12 +49,6 @@ int main() {
         LEPTON_LOG_INFO("[lepton] connection accepted, fd={}", 100 + i);
         app_logger->info("[spdlog] handled request {}", i);
         std::this_thread::sleep_for(std::chrono::milliseconds(5));
-    }
-
-    std::cout << "[Main] Stopping lepton poll thread...\n";
-    g_keep_polling.store(false, std::memory_order_relaxed);
-    if (poll_thread.joinable()) {
-        poll_thread.join();
     }
 
     // Flush and stop spdlog's own async machinery.
