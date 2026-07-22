@@ -177,7 +177,7 @@ LEPTON_ALWAYS_INLINE int socket_error(int fd) noexcept {
 
 LEPTON_ALWAYS_INLINE io_result recv(int fd, void* buf, std::size_t len) noexcept {
 #if defined(LEPTON_USE_FSTACK)
-    ssize_t n = ff_recv(fd, buf, len, MSG_DONTWAIT);
+    ssize_t n = ff_recv(fd, buf, len, 0);
 #else
     ssize_t n = ::recv(fd, buf, len, MSG_DONTWAIT);
 #endif
@@ -191,14 +191,18 @@ LEPTON_ALWAYS_INLINE io_result recv(int fd, void* buf, std::size_t len) noexcept
 LEPTON_ALWAYS_INLINE io_result send(int fd, const void* buf, std::size_t len,
                                     [[maybe_unused]] bool more) noexcept {
 #if defined(LEPTON_USE_FSTACK)
-    int flags = 0;
-    #if defined(MSG_DONTWAIT)
-        flags |= MSG_DONTWAIT;
-    #endif
-    ssize_t n = ff_send(fd, buf, len, flags);
+    ssize_t n = ff_send(fd, buf, len, 0);
 #else
-    constexpr int kNoSig = MSG_NOSIGNAL;
-    const int kMore = more ? MSG_MORE : 0;
+    #if defined(MSG_NOSIGNAL)
+        constexpr int kNoSig = MSG_NOSIGNAL;
+    #else
+        constexpr int kNoSig = 0;
+    #endif
+    #if defined(MSG_MORE)
+        const int kMore = more ? MSG_MORE : 0;
+    #else
+        const int kMore = 0;
+    #endif
     ssize_t n = ::send(fd, buf, len, MSG_DONTWAIT | kNoSig | kMore);
 #endif
 
