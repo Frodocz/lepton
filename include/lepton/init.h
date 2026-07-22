@@ -105,10 +105,16 @@ inline int init([[maybe_unused]] int argc, [[maybe_unused]] char** argv, [[maybe
 
     s_initialized.store(true, std::memory_order_release);
     set_env_active(true);
+    std::atexit([]() {
+        lepton::set_env_active(false);
+    });
     return 0;
 #else
     s_initialized.store(true, std::memory_order_release);
     set_env_active(true);
+    std::atexit([]() {
+        lepton::set_env_active(false);
+    });
     return 0;
 #endif
 }

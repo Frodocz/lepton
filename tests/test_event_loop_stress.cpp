@@ -72,6 +72,11 @@ private:
     int64_t msg_count_{0};
 };
 
+#if defined(LEPTON_USE_FSTACK)
+TEST(EventLoopStressTest, SkippedUnderFStack) {
+    GTEST_SKIP() << "Skipping EventLoopStressTest under F-Stack mode due to multi-threaded/shared-nothing constraints.";
+}
+#else
 TEST(EventLoopStressTest, HighThroughputBusyPollLoopback) {
     // 1. Setup Mock Server Socket
     int server_fd = ::socket(AF_INET, SOCK_STREAM, 0);
@@ -119,33 +124,39 @@ TEST(EventLoopStressTest, HighThroughputBusyPollLoopback) {
         ::close(server_fd);
     });
 
-    // 3. Client connection
-    net::TcpSocket client_socket;
-    auto ep_opt = net::Endpoint{}.resolve("127.0.0.1", port);
-    ASSERT_TRUE(ep_opt.has_value());
-    ASSERT_TRUE(client_socket.connect(*ep_opt));
+    // 3. Connect Client and Pump Messages
+    std::thread client_thread([port, &server_running, &server_processed]() {
+        net::TcpSocket client_socket;
+        auto ep = net::Endpoint{}.resolve("127.0.0.1", port);
+        ASSERT_TRUE(ep.has_value());
+        
+        while (!client_socket.connect(*ep)) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
 
-    // Send payload
-    std::vector<uint8_t> payload_buf(sizeof(MsgHeader) + kPayloadSize, 0xAB);
-    
-    // 4. Run Client Sender & Receiver loop
-    std::thread client_thread([&client_socket, &payload_buf]() {
-        int64_t sent = 0;
-        int64_t received = 0;
+        uint8_t payload[kPayloadSize];
+        std::memset(payload, 0x5a, sizeof(payload));
+
         uint8_t read_buf[2048];
         std::size_t offset = 0;
+        int64_t sent = 0;
+        int64_t received = 0;
 
-        while (received < kStressTargetMsg) {
+        while (received < kStressTargetMsg && server_running.load()) {
             bool did_work = false;
-            // Write when possible
-            if (sent < kStressTargetMsg) {
+
+            // Write payload
+            if (sent < kStressTargetMsg && sent - received < 1000) {
                 MsgHeader hdr{sent, kPayloadSize};
-                std::memcpy(payload_buf.data(), &hdr, sizeof(MsgHeader));
-                std::span<const uint8_t> src = {payload_buf.data(), payload_buf.size()};
+                uint8_t send_buf[sizeof(MsgHeader) + kPayloadSize];
+                std::memcpy(send_buf, &hdr, sizeof(MsgHeader));
+                std::memcpy(send_buf + sizeof(MsgHeader), payload, kPayloadSize);
+                
+                std::span<const uint8_t> src = {send_buf, sizeof(send_buf)};
                 net::sys::io_result nw = client_socket.write(src, /*more=*/false);
                 if (nw > 0) {
-                    sent++;
                     did_work = true;
+                    sent++;
                 }
             }
 
@@ -186,6 +197,7 @@ TEST(EventLoopStressTest, HighThroughputBusyPollLoopback) {
 
     EXPECT_EQ(server_processed.load(), kStressTargetMsg);
 }
+#endif
 
 } // namespace
 } // namespace lepton

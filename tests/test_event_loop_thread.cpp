@@ -9,6 +9,11 @@
 using namespace lepton;
 using namespace lepton::net;
 
+#if defined(LEPTON_USE_FSTACK)
+TEST(EventLoopThreadTest, SkippedUnderFStack) {
+    GTEST_SKIP() << "Skipping EventLoopThreadTest under F-Stack mode due to multi-threading and single-run EAL constraints.";
+}
+#else
 TEST(EventLoopThreadTest, BasicLifecycleAndStepHook) {
     TscClock::calibrate();
 
@@ -75,3 +80,4 @@ TEST(EventLoopThreadTest, CustomConfiguration) {
     loop_thread.stop();
     EXPECT_FALSE(loop_thread.is_running());
 }
+#endif
