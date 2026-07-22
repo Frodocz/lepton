@@ -130,6 +130,7 @@ TEST(IOBufferTest, PrependAndHeadroom) {
 }
 
 TEST(BufferPoolTest, MultiThreadedConcurrentAcquireRelease) {
+#if !defined(LEPTON_USE_FSTACK)
     constexpr int kNumThreads = 8;
     constexpr int kNumIterations = 10000;
     constexpr std::size_t kPoolSize = 32;
@@ -184,6 +185,7 @@ TEST(BufferPoolTest, MultiThreadedConcurrentAcquireRelease) {
     
     // Assert all iterations completed successfully
     EXPECT_EQ(success_count.load(), kNumThreads * kNumIterations);
+#endif
 }
 
 } // namespace

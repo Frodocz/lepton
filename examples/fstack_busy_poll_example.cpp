@@ -350,14 +350,6 @@ int main(int argc, char* argv[]) {
         }
     });
 
-    // Release DPDK-backed resources on this thread before loop.run() unwinds
-    // into rte_eal_cleanup(): destroy the session first (returns its buffers to
-    // the pool), then the pool itself (frees the mempool).
-    loop.set_shutdown_hook([&]() {
-        ws.reset();
-        pool.reset();
-    });
-
     // 5. Spawn Logger Thread (polls Quill backend worker every 5us)
     std::jthread logger_thread([&](std::stop_token stoken) {
         pin_thread_to_core(3);
@@ -439,24 +431,51 @@ int main(int argc, char* argv[]) {
         }
     });
 
+    // Emit the latency report (and release DPDK-backed resources) from the
+    // loop's shutdown hook. It runs on the loop thread the instant loop.stop()
+    // takes effect and BEFORE loop.run() unwinds into ff_stop_run() /
+    // rte_eal_cleanup(). Printing (and flushing) here guarantees the statistics
+    // are emitted even though F-Stack's EAL teardown currently aborts on exit.
+    auto emit_report_and_release = [&]() {
+        // Stop the stats collector and gather its final samples.
+        g_running = false;
+        if (core_thread.joinable()) {
+            core_thread.join();
+        }
+
+        std::printf("\n\n===========================================================================================");
+        std::printf("\n  LEPTON F-STACK COMPATIBLE LATENCY PERFORMANCE REPORT (MengRaoSPSCQueue)");
+        std::printf("\n===========================================================================================\n");
+        print_single_report("TICKERS CHANNEL", ticker_handoff, ticker_e2e, ticker_parse, ticker_net_recv);
+        print_single_report("BBO-TBT CHANNEL", bbo_handoff, bbo_e2e, bbo_parse, bbo_net_recv);
+        print_single_report("TRADES CHANNEL", trade_handoff, trade_e2e, trade_parse, trade_net_recv);
+        print_single_report("COMBINED PIPELINE (ALL CHANNELS)", comb_handoff, comb_e2e, comb_parse, comb_net_recv);
+        std::printf("===========================================================================================\n");
+        // Force the report out NOW: if F-Stack aborts during EAL teardown, a
+        // block-buffered stdout (e.g. when piped to a file) would otherwise lose
+        // everything printed above.
+        std::fflush(stdout);
+
+        // Release DPDK-backed buffers while the EAL is still up: session first
+        // (returns its buffers to the pool), then the pool (frees the mempool).
+        ws.reset();
+        pool.reset();
+    };
+
+    // inplace_function is size-limited, so capture only the wrapper lambda.
+    loop.set_shutdown_hook([&emit_report_and_release]() {
+        emit_report_and_release();
+    });
+
     // 6. Run EventLoop
     // Driven by DPDK PMD loop (F-Stack mode) or POSIX step loop
     LEPTON_LOG_INFO("Running event loop driven by loop.run()...");
     loop.run();
 
-    // 7. Cleanup & Print Reports
-    g_running = false;
-    core_thread.join();
-
-    // Print percentile reports
-    std::printf("\n\n===========================================================================================");
-    std::printf("\n  LEPTON F-STACK COMPATIBLE LATENCY PERFORMANCE REPORT (MengRaoSPSCQueue)");
-    std::printf("\n===========================================================================================\n");
-    print_single_report("TICKERS CHANNEL", ticker_handoff, ticker_e2e, ticker_parse, ticker_net_recv);
-    print_single_report("BBO-TBT CHANNEL", bbo_handoff, bbo_e2e, bbo_parse, bbo_net_recv);
-    print_single_report("TRADES CHANNEL", trade_handoff, trade_e2e, trade_parse, trade_net_recv);
-    print_single_report("COMBINED PIPELINE (ALL CHANNELS)", comb_handoff, comb_e2e, comb_parse, comb_net_recv);
-    std::printf("===========================================================================================\n");
-
+    // The report is emitted by the shutdown hook above, before loop.run()
+    // unwinds. Under the current F-Stack build the process aborts during EAL
+    // teardown inside loop.run(), so execution may not reach this line — that is
+    // expected, and the statistics have already been printed and flushed.
+    LEPTON_LOG_INFO("Event loop exited cleanly.");
     return 0;
 }
