@@ -13,6 +13,7 @@
 /// under POSIX it is `while (running_) step();`. `step()` is identical in both.
 
 #include "lepton/base/attributes.h"
+#include "lepton/init.h"
 #include "lepton/net/detail/poller.h"
 
 #include "third_party/inplace_function.h"
@@ -160,6 +161,11 @@ public:
         // right before ff_stop_run(), because rte_eal_cleanup() runs inside
         // ff_run with no loop-thread code afterward.
         ff_run(&EventLoop::fstack_trampoline, this);
+        
+        // Once ff_run returns, EAL resources have been completely released/cleaned up.
+        // Mark the global environment as inactive to protect downstream C++ destructors
+        // from making invalid F-Stack/DPDK API calls.
+        lepton::set_env_active(false);
 #else
         while (running_) {
             step();

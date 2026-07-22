@@ -14,6 +14,7 @@
 ///                      -> Not set means POSIX kernel sockets (local dev / CI)
 
 #include "lepton/base/attributes.h"
+#include "lepton/init.h"
 
 #include <cerrno>
 #include <cstddef>
@@ -67,7 +68,12 @@ LEPTON_ALWAYS_INLINE void close(int fd) noexcept {
         return;
     }
 #if defined(LEPTON_USE_FSTACK)
-    ff_close(fd);
+    // Only close via F-Stack if the environment is still active.
+    // Destructors of socket wrappers may be invoked after ff_run exits, where
+    // EAL cleanup has already destroyed F-Stack internals.
+    if (lepton::is_env_active()) {
+        ff_close(fd);
+    }
 #else
     ::close(fd);
 #endif

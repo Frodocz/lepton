@@ -17,6 +17,27 @@
 
 namespace lepton {
 
+/// @brief Internal reference to the global environment active state.
+/// This tracks whether the underlying userspace stack (like DPDK/F-Stack) is still running.
+/// Under F-Stack, ff_run() dismantles the EAL memory stack on exit. Once EAL cleanup is done,
+/// subsequent calls to DPDK/F-Stack APIs (e.g. ff_close, rte_mempool_free) in C++ destructors
+/// would attempt Use-After-Free and cause glibc heap corruption (e.g. malloc_consolidate aborts).
+inline std::atomic<bool>& env_active_ref() {
+    static std::atomic<bool> active{false};
+    return active;
+}
+
+/// @brief Check if the Lepton system environment is active and accepting API calls.
+/// Destructors of sockets, pollers, and mempools query this before invoking backend resource cleanup.
+inline bool is_env_active() {
+    return env_active_ref().load(std::memory_order_acquire);
+}
+
+/// @brief Set the Lepton system environment active state.
+inline void set_env_active(bool active) {
+    env_active_ref().store(active, std::memory_order_release);
+}
+
 /// Initialize the Lepton framework and underlying network/system stack (e.g. F-Stack/DPDK).
 /// Guarantee thread-safe, idempotent initialization (safe to call multiple times).
 ///
@@ -83,9 +104,11 @@ inline int init([[maybe_unused]] int argc, [[maybe_unused]] char** argv, [[maybe
     }
 
     s_initialized.store(true, std::memory_order_release);
+    set_env_active(true);
     return 0;
 #else
     s_initialized.store(true, std::memory_order_release);
+    set_env_active(true);
     return 0;
 #endif
 }

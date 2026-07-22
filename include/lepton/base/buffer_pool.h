@@ -16,6 +16,7 @@
 #include "lepton/base/io_buffer.h"
 #include "lepton/base/lepton_error.h"
 #include "lepton/base/logger.h"
+#include "lepton/init.h"
 
 #include <atomic>
 #include <cassert>
@@ -135,7 +136,10 @@ public:
 
     ~BufferPool() {
 #if defined(LEPTON_USE_FSTACK)
-        if (mp_ != nullptr) {
+        // Only free the DPDK mempool if the EAL system has not been cleaned up/shut down yet.
+        // Once ff_run exits, EAL structures are dismantled, and calling rte_mempool_free
+        // would trigger a Use-After-Free/glibc heap abort.
+        if (mp_ != nullptr && lepton::is_env_active()) {
             rte_mempool_free(mp_);
         }
 #else

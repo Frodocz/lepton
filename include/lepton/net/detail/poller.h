@@ -4,6 +4,7 @@
 /// @brief Readiness poller seam: epoll (POSIX) or ff_epoll (F-Stack).
 
 #include "lepton/base/attributes.h"
+#include "lepton/init.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -48,7 +49,11 @@ public:
     ~Poller() {
         if (handle_ >= 0) {
 #if defined(LEPTON_USE_FSTACK)
-            ff_close(handle_);
+            // Only invoke F-Stack APIs if the stack has not been shut down.
+            // After ff_run exits, calling ff_close causes use-after-free crashes.
+            if (lepton::is_env_active()) {
+                ff_close(handle_);
+            }
 #else
             ::close(handle_);
 #endif
