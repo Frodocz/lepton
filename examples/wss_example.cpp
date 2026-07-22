@@ -115,5 +115,6 @@ int main(int argc, char* argv[]) {
     ws.close();
     loop.step();
 
+    lepton::set_env_active(false);
     return 0;
 }

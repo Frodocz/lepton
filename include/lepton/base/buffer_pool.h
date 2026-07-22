@@ -136,12 +136,12 @@ public:
 
     ~BufferPool() {
 #if defined(LEPTON_USE_FSTACK)
-        // Only free the DPDK mempool if the EAL system has not been cleaned up/shut down yet.
-        // Once ff_run exits, EAL structures are dismantled, and calling rte_mempool_free
-        // would trigger a Use-After-Free/glibc heap abort.
-        if (mp_ != nullptr && lepton::is_env_active()) {
-            rte_mempool_free(mp_);
-        }
+        // Under F-Stack mode, we deliberately do NOT call rte_mempool_free(mp_).
+        // Since F-Stack globally intercepts malloc/free, invoking DPDK's mempool free
+        // can lead to boundary mixing between F-Stack's jemalloc and DPDK EAL memory,
+        // corrupting glibc's fastbins and causing a crash on exit.
+        // DPDK's internal mempool memory will be cleaned up by rte_eal_cleanup / process termination.
+        (void)mp_;
 #else
         if (arena_ != nullptr) {
             (void)::munlock(arena_, allocated_size_);
