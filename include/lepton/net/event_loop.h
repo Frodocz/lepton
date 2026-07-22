@@ -55,6 +55,14 @@ public:
     /// thread, once per cycle, before draining sockets.
     using StepHook = stdext::inplace_function<void(), 64>;
 
+    /// One-shot teardown hook. Runs exactly once on the loop thread when the
+    /// loop is stopping, AFTER the last step() and BEFORE the backend is torn
+    /// down. Under F-Stack this is the only safe point to release DPDK-backed
+    /// resources (session buffers, mempools): once ff_stop_run() fires, ff_run
+    /// calls rte_eal_cleanup() with no further loop-thread code running, so any
+    /// rte_mempool_* call after that point touches freed memory.
+    using ShutdownHook = stdext::inplace_function<void(), 64>;
+
     explicit EventLoop(const EventLoopConfig& cfg)
         : cfg_{cfg}, poller_{cfg.busy_poll ? 0 : cfg.max_events} {
         sessions_.reserve(static_cast<std::size_t>(cfg.max_sessions));
@@ -111,6 +119,8 @@ public:
 
     void set_step_hook(StepHook hook) { step_hook_ = std::move(hook); }
 
+    void set_shutdown_hook(ShutdownHook hook) { shutdown_hook_ = std::move(hook); }
+
     /// One reactor iteration: run step hook, then (busy-poll) drain every
     /// pollable or (poller) wait + dispatch ready ones.
     LEPTON_ALWAYS_INLINE void step() {
@@ -145,31 +155,46 @@ public:
     void run() {
         running_ = true;
 #if defined(LEPTON_USE_FSTACK)
-        // ff_run pumps the DPDK PMD and invokes our trampoline each cycle.
+        // ff_run pumps the DPDK PMD and invokes our trampoline each cycle. The
+        // shutdown hook fires inside the trampoline (see fstack_trampoline)
+        // right before ff_stop_run(), because rte_eal_cleanup() runs inside
+        // ff_run with no loop-thread code afterward.
         ff_run(&EventLoop::fstack_trampoline, this);
 #else
         while (running_) {
             step();
         }
+        run_shutdown_hook_once();
 #endif
     }
 
     void stop() noexcept {
         running_ = false;
-#if defined(LEPTON_USE_FSTACK)
-        ff_stop_run();
-#endif
     }
 
     [[nodiscard]] bool busy_poll() const noexcept { return cfg_.busy_poll; }
     [[nodiscard]] std::size_t session_count() const noexcept { return sessions_.size(); }
 
 private:
+    void run_shutdown_hook_once() {
+        if (shutdown_hook_) {
+            shutdown_hook_();
+            shutdown_hook_ = nullptr;
+        }
+    }
+
 #if defined(LEPTON_USE_FSTACK)
     // ff_run calls this repeatedly with the pointer we passed. Returning 0 keeps
-    // the loop alive; the process exits via stop()+external means under F-Stack.
+    // the loop alive. When stop() has flipped running_ we run the shutdown hook
+    // (release DPDK resources on this thread while the EAL is still up) and then
+    // ask ff_run to unwind, which triggers rte_eal_cleanup().
     static int fstack_trampoline(void* arg) {
         auto* self = static_cast<EventLoop*>(arg);
+        if (!self->running_.load(std::memory_order_acquire)) {
+            self->run_shutdown_hook_once();
+            ff_stop_run();
+            return 0;
+        }
         self->step();
         return 0;
     }
@@ -180,6 +205,7 @@ private:
     std::vector<Pollable*> sessions_;  ///< pre-reserved at construction
     std::vector<ReadyEvent> events_;   ///< poller batch scratch
     StepHook step_hook_{};
+    ShutdownHook shutdown_hook_{};
     int current_event_idx_{-1};
     int current_event_count_{0};
     std::atomic<bool> running_{false};

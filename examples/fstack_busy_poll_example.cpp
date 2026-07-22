@@ -246,7 +246,11 @@ int main(int argc, char* argv[]) {
     // Setup loop configuration (busy poll)
     net::EventLoopConfig loop_cfg{.busy_poll = true};
     net::EventLoop loop(loop_cfg);
-    BufferPool pool(32, 4096, false);
+    // Pool and session hold DPDK-backed buffers, so they must be torn down on
+    // this (the F-Stack) thread while the EAL is still up — see the shutdown
+    // hook below. They live in unique_ptrs so the hook can release them before
+    // loop.run() unwinds into rte_eal_cleanup().
+    auto pool = std::make_unique<BufferPool>(32, 4096, false);
 
     security::TlsContext::Options tls_opts{.verify_peer = false};
     security::TlsContext tls_ctx(tls_opts);
@@ -260,23 +264,23 @@ int main(int argc, char* argv[]) {
     net::Endpoint ep = *ep_opt;
 
     // 2. Setup WsSession
-    net::WsSession<security::TlsStream> ws(loop, pool);
-    ws.set_host("ws.okx.com");
-    ws.set_path("/ws/v5/public");
-    ws.set_sec_key("dGhlIHNhbXBsZSBub25jZQ==");
-    ws.set_ping_interval_ns(15'000'000'000);   // 15s ping
-    ws.set_pong_timeout_ns(5'000'000'000);      // 5s pong
+    auto ws = std::make_unique<net::WsSession<security::TlsStream>>(loop, *pool);
+    ws->set_host("ws.okx.com");
+    ws->set_path("/ws/v5/public");
+    ws->set_sec_key("dGhlIHNhbXBsZSBub25jZQ==");
+    ws->set_ping_interval_ns(15'000'000'000);   // 15s ping
+    ws->set_pong_timeout_ns(5'000'000'000);      // 5s pong
 
-    ws.transport().set_context(tls_ctx);
-    ws.transport().set_hostname("ws.okx.com");
+    ws->transport().set_context(tls_ctx);
+    ws->transport().set_hostname("ws.okx.com");
 
     std::atomic<bool> subscribed{false};
 
-    ws.on_state([](net::WsState state) {
+    ws->on_state([](net::WsState state) {
         LEPTON_LOG_INFO("MD WSS Connection State: {}", static_cast<int>(state));
     });
 
-    ws.on_message([&](const net::WsMessageView& msg) {
+    ws->on_message([&](const net::WsMessageView& msg) {
         int64_t local_recv = TscClock::tscns();
         std::string_view payload{reinterpret_cast<const char*>(msg.payload.data()), msg.payload.size()};
 
@@ -315,7 +319,7 @@ int main(int argc, char* argv[]) {
     });
 
     // 3. Connect WsSession
-    ws.connect(ep);
+    ws->connect(ep);
 
     // 4. Configure EventLoop Step Hook
     // Used to send subscriptions and gracefully terminate the loop on the main event thread
@@ -327,23 +331,31 @@ int main(int argc, char* argv[]) {
         }
 
         // Send OKX WebSocket subscription if the connection is open
-        if (ws.state() == net::WsState::Open && !subscribed) {
+        if (ws->state() == net::WsState::Open && !subscribed) {
             LEPTON_LOG_INFO("WSS connected. Sending OKX BTC-USDT subscription JSON...");
             std::string sub_json = R"({"op": "subscribe", "args": [)"
                                    R"({"channel": "tickers", "instId": "BTC-USDT"},)"
                                    R"({"channel": "bbo-tbt", "instId": "BTC-USDT"},)"
                                    R"({"channel": "trades", "instId": "BTC-USDT"}])"
                                    R"(})";
-            (void)ws.send({reinterpret_cast<const uint8_t*>(sub_json.data()), sub_json.size()}, /*binary=*/false);
+            (void)ws->send({reinterpret_cast<const uint8_t*>(sub_json.data()), sub_json.size()}, /*binary=*/false);
             subscribed = true;
         }
 
         // Gracefully shutdown the event loop after 30 seconds of execution
         if (now - loop_start_ns >= 30'000'000'000LL) {
             LEPTON_LOG_INFO("30 seconds elapsed. Stopping event loop gracefully...");
-            ws.close();
+            ws->close();
             loop.stop();
         }
+    });
+
+    // Release DPDK-backed resources on this thread before loop.run() unwinds
+    // into rte_eal_cleanup(): destroy the session first (returns its buffers to
+    // the pool), then the pool itself (frees the mempool).
+    loop.set_shutdown_hook([&]() {
+        ws.reset();
+        pool.reset();
     });
 
     // 5. Spawn Logger Thread (polls Quill backend worker every 5us)

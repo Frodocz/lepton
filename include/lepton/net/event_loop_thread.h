@@ -52,6 +52,14 @@ public:
     /// Register a callback to run once per cycle inside the event loop thread
     void set_step_hook(EventLoop::StepHook hook) noexcept { step_hook_ = std::move(hook); }
 
+    /// Register a callback to run once, on the loop thread, when the thread is
+    /// stopping — after the loop halts but before the backend (F-Stack/DPDK) is
+    /// torn down. This is where sessions holding pool buffers must be destroyed:
+    /// their buffers are released to the DPDK mempool on the correct thread
+    /// while the EAL is still alive. The pool itself is freed by this class
+    /// immediately after this hook returns.
+    void set_shutdown_hook(EventLoop::ShutdownHook hook) noexcept { shutdown_hook_ = std::move(hook); }
+
     /// Returns true if the thread is currently running the event loop
     [[nodiscard]] bool is_running() const noexcept { return running_.load(std::memory_order_relaxed); }
 
@@ -66,6 +74,7 @@ private:
     std::unique_ptr<BufferPool> pool_;
 
     EventLoop::StepHook step_hook_;
+    EventLoop::ShutdownHook shutdown_hook_;
 };
 
 } // namespace lepton::net

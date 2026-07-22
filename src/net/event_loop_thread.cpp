@@ -57,6 +57,17 @@ bool EventLoopThread::start() {
             }
         });
 
+        // Bind shutdown hook: runs on this thread while the backend is still
+        // alive. Let the user tear down sessions first (releasing their buffers
+        // to the pool), then free the pool itself here so its DPDK mempool is
+        // destroyed on the loop thread before F-Stack tears down the EAL.
+        loop_->set_shutdown_hook([this]() {
+            if (shutdown_hook_) {
+                shutdown_hook_();
+            }
+            pool_.reset();
+        });
+
         LEPTON_LOG_INFO("[EventLoopThread] Starting background event loop thread...");
         loop_->run();
         LEPTON_LOG_INFO("[EventLoopThread] Background event loop thread exited.");

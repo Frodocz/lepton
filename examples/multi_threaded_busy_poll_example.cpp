@@ -246,10 +246,6 @@ int main(int argc, char* argv[]) {
         .to_console = true
     });
 
-    if (lepton::init(argc, argv, "multi_threaded_busy_poll_example") < 0) {
-        return 1;
-    }
-
     std::jthread logger_thread([](std::stop_token stoken) {
         pin_thread_to_core(3);
         lepton::PollLoggerScope scope;
@@ -260,11 +256,10 @@ int main(int argc, char* argv[]) {
 
     TscClock::calibrate();
 
-    // 1. Initialize EventLoop and security contexts
-    net::EventLoopConfig loop_cfg{.busy_poll = true}; // High-frequency busy poll reactor
-    net::EventLoop loop(loop_cfg);
-    BufferPool pool(32, 4096, false);
-
+    // 1. Security context and endpoint are EAL-independent, so they live on the
+    // main thread. Everything that touches DPDK — EAL init, the buffer pool, the
+    // socket and the reactor — must run on the single F-Stack thread, so it is
+    // all constructed inside the MD thread below and torn down there too.
     security::TlsContext::Options tls_opts{.verify_peer = false};
     security::TlsContext tls_ctx(tls_opts);
 
@@ -276,83 +271,108 @@ int main(int argc, char* argv[]) {
     }
     net::Endpoint ep = *ep_opt;
 
-    // 2. Setup WsSession
-    net::WsSession<security::TlsStream> ws(loop, pool);
-    ws.set_host("ws.okx.com");
-    ws.set_path("/ws/v5/public");
-    ws.set_sec_key("dGhlIHNhbXBsZSBub25jZQ==");
-    ws.set_ping_interval_ns(15'000'000'000);   // 15s ping
-    ws.set_pong_timeout_ns(5'000'000'000);      // 5s pong
-
-    ws.transport().set_context(tls_ctx);
-    ws.transport().set_hostname("ws.okx.com");
-
-    std::atomic<bool> subscribed{false};
-
-    ws.on_state([](net::WsState state) {
-        LEPTON_LOG_INFO("MD WSS Connection State: {}", static_cast<int>(state));
-    });
-
-    ws.on_message([&subscribed, &ws](const net::WsMessageView& msg) {
-        int64_t local_recv = TscClock::tscns();
-        std::string_view payload{reinterpret_cast<const char*>(msg.payload.data()), msg.payload.size()};
-
-        ChannelType chan = ChannelType::Ticker;
-        bool matched = false;
-
-        if (payload.find("\"channel\":\"tickers\"") != std::string_view::npos) {
-            chan = ChannelType::Ticker;
-            matched = true;
-        } else if (payload.find("\"channel\":\"bbo-tbt\"") != std::string_view::npos) {
-            chan = ChannelType::BBO;
-            matched = true;
-        } else if (payload.find("\"channel\":\"trades\"") != std::string_view::npos) {
-            chan = ChannelType::Trade;
-            matched = true;
+    // 2. Spawn Market Data (MD) Thread
+    // F-Stack is single-threaded per process: initialize it, create the pool and
+    // session, run the loop, and tear everything down — all on this one thread.
+    std::thread md_thread([&tls_ctx, ep, argc, argv]() {
+        pin_thread_to_core(1);
+        if (lepton::init(argc, argv, "multi_threaded_busy_poll_example") < 0) {
+            LEPTON_LOG_ERROR("F-Stack initialization failed in MD thread!");
+            g_running = false;
+            return;
         }
 
-        if (matched) {
-            int64_t exchange_ts = parse_ts_from_json(payload);
-            if (exchange_ts > 0) {
-                double price = parse_price_from_json(payload, chan);
-                int64_t parse_done = TscClock::tscns();
-                TickData* slot = g_queue.alloc();
-                if (slot) {
-                    slot->chan = chan;
-                    slot->exchange_ns = exchange_ts;
-                    slot->local_recv_ns = local_recv;
-                    slot->parse_done_ns = parse_done;
-                    slot->push_ns = TscClock::tscns();
-                    slot->price = price;
-                    std::memcpy(slot->symbol, "BTC-USDT", 9);
-                    g_queue.push();
+        net::EventLoopConfig loop_cfg{.busy_poll = true}; // High-frequency busy poll reactor
+        net::EventLoop loop(loop_cfg);
+        // Pool and session hold DPDK-backed buffers; keep them in unique_ptrs so
+        // the shutdown hook can release them on this thread before loop.run()
+        // unwinds into rte_eal_cleanup().
+        auto pool = std::make_unique<BufferPool>(32, 4096, false);
+
+        auto ws = std::make_unique<net::WsSession<security::TlsStream>>(loop, *pool);
+        ws->set_host("ws.okx.com");
+        ws->set_path("/ws/v5/public");
+        ws->set_sec_key("dGhlIHNhbXBsZSBub25jZQ==");
+        ws->set_ping_interval_ns(15'000'000'000);   // 15s ping
+        ws->set_pong_timeout_ns(5'000'000'000);      // 5s pong
+
+        ws->transport().set_context(tls_ctx);
+        ws->transport().set_hostname("ws.okx.com");
+
+        ws->on_state([](net::WsState state) {
+            LEPTON_LOG_INFO("MD WSS Connection State: {}", static_cast<int>(state));
+        });
+
+        ws->on_message([](const net::WsMessageView& msg) {
+            int64_t local_recv = TscClock::tscns();
+            std::string_view payload{reinterpret_cast<const char*>(msg.payload.data()), msg.payload.size()};
+
+            ChannelType chan = ChannelType::Ticker;
+            bool matched = false;
+
+            if (payload.find("\"channel\":\"tickers\"") != std::string_view::npos) {
+                chan = ChannelType::Ticker;
+                matched = true;
+            } else if (payload.find("\"channel\":\"bbo-tbt\"") != std::string_view::npos) {
+                chan = ChannelType::BBO;
+                matched = true;
+            } else if (payload.find("\"channel\":\"trades\"") != std::string_view::npos) {
+                chan = ChannelType::Trade;
+                matched = true;
+            }
+
+            if (matched) {
+                int64_t exchange_ts = parse_ts_from_json(payload);
+                if (exchange_ts > 0) {
+                    double price = parse_price_from_json(payload, chan);
+                    int64_t parse_done = TscClock::tscns();
+                    TickData* slot = g_queue.alloc();
+                    if (slot) {
+                        slot->chan = chan;
+                        slot->exchange_ns = exchange_ts;
+                        slot->local_recv_ns = local_recv;
+                        slot->parse_done_ns = parse_done;
+                        slot->push_ns = TscClock::tscns();
+                        slot->price = price;
+                        std::memcpy(slot->symbol, "BTC-USDT", 9);
+                        g_queue.push();
+                    }
                 }
             }
-        }
-    });
+        });
 
-    // 3. Spawn Market Data (MD) Thread
-    std::thread md_thread([&ws, &loop, &subscribed, ep]() {
-        pin_thread_to_core(1);
-        ws.connect(ep);
+        ws->connect(ep);
 
-        while (g_running) {
-            loop.step();
-
-            if (ws.state() == net::WsState::Open && !subscribed) {
+        // Drive the reactor with loop.run(): under F-Stack this pumps the DPDK
+        // PMD (a manual loop.step() loop never polls the stack, so packets never
+        // flow). The step hook subscribes once connected and stops the loop when
+        // main signals shutdown.
+        bool subscribed = false;
+        loop.set_step_hook([&]() {
+            if (!g_running) {
+                loop.stop();
+                return;
+            }
+            if (ws->state() == net::WsState::Open && !subscribed) {
                 LEPTON_LOG_INFO("WSS connected. Subscribing to BTC-USDT tickers, bbo-tbt, and trades...");
                 std::string sub_json = R"({"op": "subscribe", "args": [)"
                                        R"({"channel": "tickers", "instId": "BTC-USDT"},)"
                                        R"({"channel": "bbo-tbt", "instId": "BTC-USDT"},)"
                                        R"({"channel": "trades", "instId": "BTC-USDT"}])"
                                        R"(})";
-                (void)ws.send({reinterpret_cast<const uint8_t*>(sub_json.data()), sub_json.size()}, /*binary=*/false);
+                (void)ws->send({reinterpret_cast<const uint8_t*>(sub_json.data()), sub_json.size()}, /*binary=*/false);
                 subscribed = true;
             }
-            std::this_thread::yield();
-        }
-        ws.close();
-        loop.step();
+        });
+
+        // Release DPDK-backed resources on this thread before loop.run() unwinds.
+        loop.set_shutdown_hook([&]() {
+            ws->close();
+            ws.reset();
+            pool.reset();
+        });
+
+        loop.run();
     });
 
     // 4. Spawn Core Thread (Collects Tick and Latency Statistics)

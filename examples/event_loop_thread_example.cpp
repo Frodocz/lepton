@@ -57,45 +57,55 @@ int main(int argc, char* argv[]) {
     }
     net::Endpoint ep = *ep_opt;
 
-    // Create session registered to the background thread's EventLoop
-    net::WsSession<security::TlsStream> ws(*loop, *pool);
-    ws.set_host("ws.okx.com");
-    ws.set_path("/ws/v5/public");
-    ws.set_sec_key("dGhlIHNhbXBsZSBub25jZQ==");
-    ws.set_ping_interval_ns(15'000'000'000);   // 15s ping
-    ws.set_pong_timeout_ns(5'000'000'000);      // 5s pong
+    // Create session registered to the background thread's EventLoop.
+    // The session holds buffers from the loop thread's DPDK-backed pool, so it
+    // must also be destroyed on the loop thread (see shutdown hook below), not
+    // on the main thread after the loop has torn F-Stack down.
+    auto ws = std::make_unique<net::WsSession<security::TlsStream>>(*loop, *pool);
+    ws->set_host("ws.okx.com");
+    ws->set_path("/ws/v5/public");
+    ws->set_sec_key("dGhlIHNhbXBsZSBub25jZQ==");
+    ws->set_ping_interval_ns(15'000'000'000);   // 15s ping
+    ws->set_pong_timeout_ns(5'000'000'000);      // 5s pong
 
-    ws.transport().set_context(tls_ctx);
-    ws.transport().set_hostname("ws.okx.com");
+    ws->transport().set_context(tls_ctx);
+    ws->transport().set_hostname("ws.okx.com");
 
     std::atomic<int> message_count{0};
     std::atomic<bool> subscribed{false};
 
     // Callback handlers
-    ws.on_state([](net::WsState state) {
+    ws->on_state([](net::WsState state) {
         LEPTON_LOG_INFO("WSS State Changed: {}", static_cast<int>(state));
     });
 
-    ws.on_message([&message_count](const net::WsMessageView& msg) {
+    ws->on_message([&message_count](const net::WsMessageView& msg) {
         int count = message_count.fetch_add(1) + 1;
         LEPTON_LOG_INFO("=== Received Ticker Message ({}) ===", count);
         LEPTON_LOG_INFO("{}", std::string_view(reinterpret_cast<const char*>(msg.payload.data()), msg.payload.size()));
     });
 
-    // Begin connect
-    LEPTON_LOG_INFO("Connecting to ws.okx.com:8443 (WSS)...");
-    ws.connect(ep);
-
     // 4. Configure step-hook
-    // The step-hook runs directly inside the background EventLoopThread context
+    // The step-hook runs on the background F-Stack thread — all ff_* socket
+    // operations (connect, send, close) must happen here, not on the main thread.
+    bool connected = false;
     md_thread.set_step_hook([&]() {
-        // Send subscription if connection handshake completed
-        if (ws.state() == net::WsState::Open && !subscribed) {
+        if (!connected) {
+            LEPTON_LOG_INFO("Connecting to ws.okx.com:8443 (WSS) on F-Stack thread...");
+            ws->connect(ep);
+            connected = true;
+        }
+        if (ws->state() == net::WsState::Open && !subscribed) {
             LEPTON_LOG_INFO("WSS connected. Sending OKX BTC-USDT subscription JSON...");
             std::string sub_json = R"({"op": "subscribe", "args": [{"channel": "tickers", "instId": "BTC-USDT"}]})";
-            (void)ws.send({reinterpret_cast<const uint8_t*>(sub_json.data()), sub_json.size()}, /*binary=*/false);
+            (void)ws->send({reinterpret_cast<const uint8_t*>(sub_json.data()), sub_json.size()}, /*binary=*/false);
             subscribed = true;
         }
+    });
+
+    // Tear the session down on the loop thread before F-Stack/DPDK shuts down.
+    md_thread.set_shutdown_hook([&]() {
+        ws.reset();
     });
 
     // 5. Main thread is completely free to perform other duties
