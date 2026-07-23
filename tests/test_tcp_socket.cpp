@@ -57,6 +57,14 @@ TEST(TcpSocketTest, SocketOptions) {
     EXPECT_TRUE(sock.closed());
 }
 
+#if defined(LEPTON_USE_FSTACK)
+TEST(PollerTest, BasicLifecycle) {
+    // The F-Stack Poller drives ff_epoll, which can only manage fds created on
+    // the DPDK userspace stack — not the kernel ::socket() fd used here.
+    GTEST_SKIP() << "Skipping PollerTest.BasicLifecycle under F-Stack: ff_epoll "
+                    "cannot manage kernel socket descriptors.";
+}
+#else
 TEST(PollerTest, BasicLifecycle) {
     Poller poller(16);
     EXPECT_TRUE(poller.valid());
@@ -75,6 +83,7 @@ TEST(PollerTest, BasicLifecycle) {
     
     ::close(fd);
 }
+#endif
 
 TEST(PollerTest, WaitTimeout) {
     Poller poller(16);
@@ -157,6 +166,15 @@ void run_echo_server(std::atomic<uint16_t>& out_port) {
     ::close(server_fd);
 }
 
+#if defined(LEPTON_USE_FSTACK)
+TEST(TcpSocketTest, EndToEndCommunication) {
+    // This test pairs a kernel-loopback echo server with the TcpSocket client.
+    // Under F-Stack the client lives on the DPDK userspace stack (bound to the
+    // NIC) and cannot reach a kernel 127.0.0.1 listener, so it is skipped here.
+    GTEST_SKIP() << "Skipping TcpSocketTest.EndToEndCommunication under F-Stack: "
+                    "userspace stack cannot reach a kernel loopback server.";
+}
+#else
 TEST(TcpSocketTest, EndToEndCommunication) {
     std::atomic<uint16_t> port{0};
     
@@ -244,6 +262,7 @@ TEST(TcpSocketTest, EndToEndCommunication) {
     client.close();
     server_thread.join();
 }
+#endif
 
 } // namespace
 } // namespace lepton::net
