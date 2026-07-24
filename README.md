@@ -130,21 +130,6 @@ sudo ./build_fstack/examples/best_practice_example \
      --conf examples/f-stack.config.example.ini
 ```
 
-Example output:
-
-```
-[conn] TCP+TLS handshake: 11406 us
-[conn] WS upgrade: 181178 us | TOTAL time-to-open: 192585 us
-subscribed; streaming for 30s...
-  REPORT: STEADY-STATE MESSAGE PIPELINE (samples: 152)
-  Percentile | Reactor parse+enqueue | Inter-core handoff
-  Min        |            14 ns      |         75 ns
-  50% (med)  |            92 ns      |        207 ns
-  90%        |           217 ns      |        298 ns
-  99%        |          9111 ns      |        574 ns
-  Max        |          9733 ns      |        688 ns
-```
-
 ## Other examples
 
 - `fstack_busy_poll_example.cpp`, `multi_threaded_busy_poll_example.cpp` —
